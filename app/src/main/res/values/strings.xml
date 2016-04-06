@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">TestWifiP2p</string>
+    <string name="shout">Shout</string>
+    <string name="search">Search</string>
+    <string name="wifi_p2p_unsupported">WiFi P2P is not supported</string>
+    <string name="wifi_p2p_busy">WiFi P2P is busy</string>
+    <string name="wifi_p2p_error">WiFi P2P has error</string>
+    <string name="wifi_p2p_no_service_request">WiFi P2P has no service request</string>
+    <string name="this_is_a_bug">A bug</string>
+    <string name="service_created">Service created</string>
+</resources>
