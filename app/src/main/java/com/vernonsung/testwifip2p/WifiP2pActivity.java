@@ -2,6 +2,7 @@ package com.vernonsung.testwifip2p;
 
 import android.content.Context;
 import android.content.IntentFilter;
+import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
@@ -23,26 +24,50 @@ public class WifiP2pActivity extends AppCompatActivity
         implements WifiP2pManager.ActionListener,
                    WifiP2pManager.DnsSdServiceResponseListener,
                    WifiP2pManager.DnsSdTxtRecordListener {
-    private enum WifiP2pState {
-        FIRST,
-        INITIALIZED
-    }
-
-    private enum WiFiP2pAction {
+    private enum WifiP2pAction {
         NONE,
+        // Shout and silent
         ADD_LOCAL_SERVICE,  // WifiP2pManager.addLocalService()
+        REMOVE_LOCAL_SERVICE,  // WifiP2pManager.removeLocalService()
+        // Search services and stop searching
         ADD_SERVICE_REQUEST,  // WifiP2pManager.addServiceRequest()
-        CONNECT,  // WifiP2pManager.connect()
         DISCOVER_SERVICES,  // WifiP2pManager.discoverServices()
         REMOVE_SERVICE_REQUEST,  // WifiP2pManager.removeServiceRequest()
+        STOP_PEER_DISCOVERY,  // WifiP2pManager.stopPeerDiscovery()
+        // Request data and stop requesting data
+        DISCOVER_PEERS_DATA,  // WifiP2pManager.discoverPeers()
+        ADD_SERVICE_REQUEST_DATA,  // WifiP2pManager.addServiceRequest() for data
+        DISCOVER_SERVICES_DATA,  // WifiP2pManager.discoverServices() for data
+        REMOVE_SERVICE_REQUEST_DATA,  // WifiP2pManager.removeServiceRequest() for data
+        STOP_PEER_DISCOVERY_DATA,  // WifiP2pManager.stopPeerDiscovery() for data
+        // Other
+        CONNECT,  // WifiP2pManager.connect()
         REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD  // WifiP2pManager.removeServiceRequest() and then WifiP2pManager.addServiceRequest()
     }
 
+    private enum WifiP2pInitialStage {
+        NON_INITIALIZED,
+        INITIALIZED
+    }
+    private enum WifiP2pShoutStage {
+        SHOUT,
+        SILENT
+    }
+    private enum WifiP2pSearchStage {
+        SEARCHING,
+        SEARCH_STOPPED
+    }
+    private enum WifiP2pDataStage {
+        DATA_REQUESTED,
+        DATA_STOPPED
+    }
+
     // Wi-Fi Direct
-    public static final String WIFI_P2P_DNS_SD_SERVICE_TYPE = "_test-wifi-p2p._ucp";
+    public static final String WIFI_P2P_DNS_SD_SERVICE_TYPE = "_test-wifi-p2p._udp";
     private static final String WIFI_P2P_DNS_SD_SERVICE_DATA_IP = "ip";
     private static final String WIFI_P2P_DNS_SD_SERVICE_DATA_PORT = "port";
     private static final String LOG_TAG = "testtest";
+    private static final String WIFI_LOCK = "wifiLock";
     private WifiP2pManager wifiP2pManager;
     private WifiP2pManager.Channel wifiP2pChannel;
     private WifiP2pReceiver wifiP2pReceiver;
@@ -50,13 +75,19 @@ public class WifiP2pActivity extends AppCompatActivity
     private WifiP2pDnsSdServiceRequest wifiP2pDnsSdServiceRequest;
     private WifiP2pDnsSdServiceRequest wifiP2pDnsSdTxtRecordRequest;
     private WifiP2pDnsSdServiceInfo wifiP2pDnsSdServiceInfo;
-    private WifiP2pState currentState = WifiP2pState.FIRST;
-    private WiFiP2pAction lastAction = WiFiP2pAction.NONE;
+    private WifiP2pAction lastAction = WifiP2pAction.NONE;
+    private WifiP2pInitialStage wifiP2pInitialStage = WifiP2pInitialStage.NON_INITIALIZED;
+    private WifiP2pShoutStage wifiP2pShoutStage = WifiP2pShoutStage.SILENT;
+    private WifiP2pSearchStage wifiP2pSearchStage = WifiP2pSearchStage.SEARCH_STOPPED;
+    private WifiP2pDataStage wifiP2pDataStage = WifiP2pDataStage.DATA_STOPPED;
+    private String targetName;
+    private WifiManager.WifiLock wifiLock = null;
 
     // UI
     private TextView textViewName;
     private Button buttonShout;
     private Button buttonSearch;
+    private Button buttonData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,16 +98,23 @@ public class WifiP2pActivity extends AppCompatActivity
         textViewName = (TextView)findViewById(R.id.textViewName);
         buttonShout = (Button)findViewById(R.id.buttonShout);
         buttonSearch = (Button)findViewById(R.id.buttonSearch);
+        buttonData = (Button)findViewById(R.id.buttonData);
         buttonShout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                announceService();
+                localService();
             }
         });
         buttonSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                searchServices();
+                nearbyService();
+            }
+        });
+        buttonData.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                serviceData();
             }
         });
     }
@@ -112,14 +150,10 @@ public class WifiP2pActivity extends AppCompatActivity
     // implement WifiP2pManager.DnsSdServiceResponseListener
     @Override
     public void onDnsSdServiceAvailable(String instanceName, String registrationType, WifiP2pDevice srcDevice) {
-        Log.d(LOG_TAG, "onDnsSdServiceAvailable() found device " + instanceName);
-        Toast.makeText(this, "onDnsSdServiceAvailable() found device " + instanceName, Toast.LENGTH_SHORT).show();
-
-        // Further request data
-        wifiP2pDnsSdTxtRecordRequest = WifiP2pDnsSdServiceRequest.newInstance(instanceName, WIFI_P2P_DNS_SD_SERVICE_TYPE);
-        lastAction = WiFiP2pAction.REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD;
-        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
-        // TODO: Store this device and its MAC address
+        targetName = instanceName;
+        buttonData.setEnabled(true);
+        Log.d(LOG_TAG, "Found device " + instanceName);
+        Toast.makeText(this, "Found device " + instanceName, Toast.LENGTH_SHORT).show();
     }
 
     // implement WifiP2pManager.DnsSdTxtRecordListener
@@ -130,10 +164,6 @@ public class WifiP2pActivity extends AppCompatActivity
         String port = txtRecordMap.get(WIFI_P2P_DNS_SD_SERVICE_DATA_PORT);
         Log.d(LOG_TAG, "Socket " + ip + ":" + port);
         Toast.makeText(this, "Socket " + ip + ":" + port, Toast.LENGTH_SHORT).show();
-
-        // Finish. Stop discovering services
-        lastAction = WiFiP2pAction.REMOVE_SERVICE_REQUEST;
-        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
     }
 
     // implement WifiP2pManager.ActionListener
@@ -142,26 +172,73 @@ public class WifiP2pActivity extends AppCompatActivity
         switch (lastAction) {
             case NONE:
                 break;
+            // Shout and silent--------------------------------------------------------------------
             case ADD_LOCAL_SERVICE:
-                Log.d(LOG_TAG, "Service created");
+                wifiP2pShoutStage = WifiP2pShoutStage.SHOUT;
+                buttonShout.setText(R.string.silent);
+                Log.d(LOG_TAG, "Stage -> SHOUT");
                 Toast.makeText(this, R.string.service_created, Toast.LENGTH_SHORT).show();
                 break;
+            case REMOVE_LOCAL_SERVICE:
+                wifiP2pShoutStage = WifiP2pShoutStage.SILENT;
+                buttonShout.setText(R.string.shout);
+                Log.d(LOG_TAG, "Stage -> SILENT");
+                Toast.makeText(this, R.string.service_removed, Toast.LENGTH_SHORT).show();
+                break;
+            // Search services and stop searching--------------------------------------------------
             case ADD_SERVICE_REQUEST:
-                lastAction = WiFiP2pAction.DISCOVER_SERVICES;
+                lastAction = WifiP2pAction.DISCOVER_SERVICES;
                 wifiP2pManager.discoverServices(wifiP2pChannel, this);
                 break;
-            case CONNECT:
-                break;
             case DISCOVER_SERVICES:
-                Log.d(LOG_TAG, "Discovering services");
+                wifiP2pSearchStage = WifiP2pSearchStage.SEARCHING;
+                buttonSearch.setText(R.string.stop);
+                Log.d(LOG_TAG, "Stage -> SEARCHING");
                 Toast.makeText(this, R.string.discovering_services, Toast.LENGTH_SHORT).show();
                 break;
             case REMOVE_SERVICE_REQUEST:
-                Log.d(LOG_TAG, "Stop discovering services");
+                Log.d(LOG_TAG, "Service request removed");
+                lastAction = WifiP2pAction.STOP_PEER_DISCOVERY;
+                wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, this);
+                break;
+            case STOP_PEER_DISCOVERY:
+                wifiP2pSearchStage = WifiP2pSearchStage.SEARCH_STOPPED;
+                buttonSearch.setText(R.string.search);
+                Log.d(LOG_TAG, "Stage -> SEARCH_STOPPED");
                 Toast.makeText(this, R.string.stop_discovering_services, Toast.LENGTH_SHORT).show();
                 break;
+            // Request data and stop requesting data-----------------------------------------------
+            case DISCOVER_PEERS_DATA:
+                wifiP2pDnsSdTxtRecordRequest = WifiP2pDnsSdServiceRequest.newInstance(targetName, WIFI_P2P_DNS_SD_SERVICE_TYPE);
+                lastAction = WifiP2pAction.ADD_SERVICE_REQUEST_DATA;
+                wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
+                break;
+            case ADD_SERVICE_REQUEST_DATA:
+                lastAction = WifiP2pAction.DISCOVER_SERVICES_DATA;
+                wifiP2pManager.discoverServices(wifiP2pChannel, this);
+                break;
+            case DISCOVER_SERVICES_DATA:
+                wifiP2pDataStage = WifiP2pDataStage.DATA_REQUESTED;
+                buttonData.setText(R.string.stop);
+                Log.d(LOG_TAG, "Stage -> DATA_REQUESTED");
+                Toast.makeText(this, R.string.requesting_service_data, Toast.LENGTH_SHORT).show();
+                break;
+            case REMOVE_SERVICE_REQUEST_DATA:
+                Log.d(LOG_TAG, "Data request removed");
+                lastAction = WifiP2pAction.STOP_PEER_DISCOVERY_DATA;
+                wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, this);
+                break;
+            case STOP_PEER_DISCOVERY_DATA:
+                wifiP2pDataStage = WifiP2pDataStage.DATA_STOPPED;
+                buttonData.setText(R.string.data);
+                Log.d(LOG_TAG, "Stage -> DATA_STOPPED");
+                Toast.makeText(this, R.string.stop_requesting_data, Toast.LENGTH_SHORT).show();
+                break;
+            // Other-------------------------------------------------------------------------------
+            case CONNECT:
+                break;
             case REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD:
-                lastAction = WiFiP2pAction.ADD_SERVICE_REQUEST;
+                lastAction = WifiP2pAction.ADD_SERVICE_REQUEST;
                 wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
                 break;
         }
@@ -227,13 +304,21 @@ public class WifiP2pActivity extends AppCompatActivity
         // Change UI
         textViewName.setText(name);
 
+        // To ensure Wi-Fi is ON
+        wifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
+                .createWifiLock(WifiManager.WIFI_MODE_FULL, WIFI_LOCK);
+        wifiLock.acquire();
+
         // Change state
-        currentState = WifiP2pState.INITIALIZED;
-        Log.d(LOG_TAG, "State -> INITIALIZED");
+        wifiP2pInitialStage = WifiP2pInitialStage.INITIALIZED;
+        Log.d(LOG_TAG, "Stage -> INITIALIZED");
     }
 
     private void stopWifiP2p() {
-        if (currentState != WifiP2pState.FIRST) {
+        if (wifiP2pInitialStage != WifiP2pInitialStage.NON_INITIALIZED) {
+            if (wifiLock != null) {
+                wifiLock.release();
+            }
             wifiP2pManager.cancelConnect(wifiP2pChannel, null);
             wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, null);
             if (wifiP2pDnsSdTxtRecordRequest != null) {
@@ -242,25 +327,88 @@ public class WifiP2pActivity extends AppCompatActivity
             wifiP2pManager.removeLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, null);
             wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, null);
             // Change state
-            currentState = WifiP2pState.FIRST;
-            Log.d(LOG_TAG, "State -> FIRST");
+            wifiP2pShoutStage = WifiP2pShoutStage.SILENT;
+            wifiP2pSearchStage = WifiP2pSearchStage.SEARCH_STOPPED;
+            wifiP2pDataStage = WifiP2pDataStage.DATA_STOPPED;
+            wifiP2pInitialStage = WifiP2pInitialStage.NON_INITIALIZED;
+            Log.d(LOG_TAG, "State -> NON_INITIALIZED");
+            buttonShout.setText(R.string.shout);
+            buttonSearch.setText(R.string.search);
+            buttonData.setText(R.string.data);
+            buttonData.setEnabled(false);
         }
-    }
-
-    // Step 2: Start to discover the devices running this APP
-    // Next step is wifiP2pManager.discoverServices(wifiP2pChannel, this) in onSuccess()
-    public void discoverNearbyServices() {
-        lastAction = WiFiP2pAction.ADD_SERVICE_REQUEST;
-        wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
     }
 
     // Announce this device is running this APP
     public void announceService() {
-        lastAction = WiFiP2pAction.ADD_LOCAL_SERVICE;
+        lastAction = WifiP2pAction.ADD_LOCAL_SERVICE;
         wifiP2pManager.addLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, this);
     }
 
-    public void searchServices() {
-        discoverNearbyServices();
+    // Hide this device is running this APP
+    public void hideService() {
+        lastAction = WifiP2pAction.REMOVE_LOCAL_SERVICE;
+        wifiP2pManager.removeLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, this);
+    }
+
+    public void localService() {
+        switch (wifiP2pShoutStage) {
+            case SHOUT:
+                hideService();
+                break;
+            case SILENT:
+                announceService();
+                break;
+        }
+    }
+
+    // Step 2: Start to discover the devices running this APP
+    // Next step is "Search services" part in onSuccess()
+    public void discoverNearbyServices() {
+        lastAction = WifiP2pAction.ADD_SERVICE_REQUEST;
+        wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
+    }
+
+    // Stop discovering nearby devices running this APP
+    // Next step is "Stop searching" part in onSuccess()
+    public void stopDiscoverNearbySearvices() {
+        lastAction = WifiP2pAction.REMOVE_SERVICE_REQUEST;
+        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
+    }
+
+    public void nearbyService() {
+        switch (wifiP2pSearchStage) {
+            case SEARCHING:
+                stopDiscoverNearbySearvices();
+                break;
+            case SEARCH_STOPPED:
+                discoverNearbyServices();
+                break;
+        }
+    }
+
+    // Step 3: Start to request specify device's data
+    // Next step is "Request data" part in onSuccess()
+    public void requestData() {
+        lastAction = WifiP2pAction.DISCOVER_PEERS_DATA;
+        wifiP2pManager.discoverPeers(wifiP2pChannel, this);
+    }
+
+    // Stop requesting data
+    // Next stop is "Stop requesting data" part in onSuccess()
+    public void stopRequestingData() {
+        lastAction = WifiP2pAction.REMOVE_SERVICE_REQUEST_DATA;
+        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
+    }
+
+    public void serviceData() {
+        switch (wifiP2pDataStage) {
+            case DATA_REQUESTED:
+                stopRequestingData();
+                break;
+            case DATA_STOPPED:
+                requestData();
+                break;
+        }
     }
 }
