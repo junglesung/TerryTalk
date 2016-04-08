@@ -45,8 +45,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // After receiving an intent with action WIFI_P2P_PEERS_CHANGED_ACTION,
     // discover the devices running this APP
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
-        Log.d(LOG_TAG, "Discover nearby devices successfully, now discover nearby services");
-        wifiP2pActivity.discoverNearbyServices();
+        Log.d(LOG_TAG, "Nearby devices changed");
     }
 
     // Notify if nearby device discovery starts or stops

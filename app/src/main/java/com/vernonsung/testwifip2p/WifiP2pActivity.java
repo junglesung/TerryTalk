@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.InetSocketAddress;
@@ -24,13 +25,17 @@ public class WifiP2pActivity extends AppCompatActivity
                    WifiP2pManager.DnsSdTxtRecordListener {
     private enum WifiP2pState {
         FIRST,
-        INITIALIZED,
-        DISCOVERING_PEERS,
-        SERVICE_DISCOVER_PREPARED,
-        DISCOVERING_SERVICES,
-        SERVICES_FOUND,
-        CREATING_SERVICE,
-        SERVICE_CREATED
+        INITIALIZED
+    }
+
+    private enum WiFiP2pAction {
+        NONE,
+        ADD_LOCAL_SERVICE,  // WifiP2pManager.addLocalService()
+        ADD_SERVICE_REQUEST,  // WifiP2pManager.addServiceRequest()
+        CONNECT,  // WifiP2pManager.connect()
+        DISCOVER_SERVICES,  // WifiP2pManager.discoverServices()
+        REMOVE_SERVICE_REQUEST,  // WifiP2pManager.removeServiceRequest()
+        REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD  // WifiP2pManager.removeServiceRequest() and then WifiP2pManager.addServiceRequest()
     }
 
     // Wi-Fi Direct
@@ -43,10 +48,13 @@ public class WifiP2pActivity extends AppCompatActivity
     private WifiP2pReceiver wifiP2pReceiver;
     private IntentFilter wifiP2pIntentFilter;
     private WifiP2pDnsSdServiceRequest wifiP2pDnsSdServiceRequest;
+    private WifiP2pDnsSdServiceRequest wifiP2pDnsSdTxtRecordRequest;
     private WifiP2pDnsSdServiceInfo wifiP2pDnsSdServiceInfo;
     private WifiP2pState currentState = WifiP2pState.FIRST;
+    private WiFiP2pAction lastAction = WiFiP2pAction.NONE;
 
     // UI
+    private TextView textViewName;
     private Button buttonShout;
     private Button buttonSearch;
 
@@ -56,6 +64,7 @@ public class WifiP2pActivity extends AppCompatActivity
         setContentView(R.layout.activity_wifi_p2p);
 
         // UI
+        textViewName = (TextView)findViewById(R.id.textViewName);
         buttonShout = (Button)findViewById(R.id.buttonShout);
         buttonSearch = (Button)findViewById(R.id.buttonSearch);
         buttonShout.setOnClickListener(new View.OnClickListener() {
@@ -96,15 +105,7 @@ public class WifiP2pActivity extends AppCompatActivity
 
     @Override
     protected void onStop() {
-        if (currentState != WifiP2pState.FIRST) {
-            wifiP2pManager.cancelConnect(wifiP2pChannel, null);
-            wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, null);
-            wifiP2pManager.removeLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, null);
-            wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, null);
-            // Change state
-            currentState = WifiP2pState.FIRST;
-            Log.d(LOG_TAG, "State -> FIRST");
-        }
+        stopWifiP2p();
         super.onStop();
     }
 
@@ -112,10 +113,12 @@ public class WifiP2pActivity extends AppCompatActivity
     @Override
     public void onDnsSdServiceAvailable(String instanceName, String registrationType, WifiP2pDevice srcDevice) {
         Log.d(LOG_TAG, "onDnsSdServiceAvailable() found device " + instanceName);
-        Toast.makeText(this, "onDnsSdServiceAvailable() found device " + instanceName, Toast.LENGTH_LONG).show();
-        // Change state
-        currentState = WifiP2pState.SERVICES_FOUND;
-        Log.d(LOG_TAG, "State -> SERVICES_FOUND");
+        Toast.makeText(this, "onDnsSdServiceAvailable() found device " + instanceName, Toast.LENGTH_SHORT).show();
+
+        // Further request data
+        wifiP2pDnsSdTxtRecordRequest = WifiP2pDnsSdServiceRequest.newInstance(instanceName, WIFI_P2P_DNS_SD_SERVICE_TYPE);
+        lastAction = WiFiP2pAction.REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD;
+        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
         // TODO: Store this device and its MAC address
     }
 
@@ -126,45 +129,40 @@ public class WifiP2pActivity extends AppCompatActivity
         String ip = txtRecordMap.get(WIFI_P2P_DNS_SD_SERVICE_DATA_IP);
         String port = txtRecordMap.get(WIFI_P2P_DNS_SD_SERVICE_DATA_PORT);
         Log.d(LOG_TAG, "Socket " + ip + ":" + port);
-        Toast.makeText(this, "Socket " + ip + ":" + port, Toast.LENGTH_LONG).show();
-        // Change state
-        currentState = WifiP2pState.SERVICES_FOUND;
-        Log.d(LOG_TAG, "State -> SERVICES_FOUND");
+        Toast.makeText(this, "Socket " + ip + ":" + port, Toast.LENGTH_SHORT).show();
+
+        // Finish. Stop discovering services
+        lastAction = WiFiP2pAction.REMOVE_SERVICE_REQUEST;
+        wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
     }
 
     // implement WifiP2pManager.ActionListener
     @Override
     public void onSuccess() {
-        // Change state
-        switch (currentState) {
-            case FIRST:
+        switch (lastAction) {
+            case NONE:
                 break;
-            // From wifiP2pManager.discoverPeers() in discoverNearbyDevices()
-            case INITIALIZED:
-                currentState = WifiP2pState.DISCOVERING_PEERS;
-                Log.d(LOG_TAG, "State -> DISCOVERING_PEERS");
+            case ADD_LOCAL_SERVICE:
+                Log.d(LOG_TAG, "Service created");
+                Toast.makeText(this, R.string.service_created, Toast.LENGTH_SHORT).show();
                 break;
-            // From wifiP2pManager.addServiceRequest() in discoverNearbyServices()
-            case DISCOVERING_PEERS:
-                currentState = WifiP2pState.SERVICE_DISCOVER_PREPARED;
-                Log.d(LOG_TAG, "State -> SERVICE_DISCOVER_PREPARED");
+            case ADD_SERVICE_REQUEST:
+                lastAction = WiFiP2pAction.DISCOVER_SERVICES;
                 wifiP2pManager.discoverServices(wifiP2pChannel, this);
                 break;
-            // From wifiP2pManager.discoverServices() in onSuccess()
-            case SERVICE_DISCOVER_PREPARED:
-                currentState = WifiP2pState.DISCOVERING_SERVICES;
-                Log.d(LOG_TAG, "State -> DISCOVERING_SERVICES");
+            case CONNECT:
                 break;
-            case DISCOVERING_SERVICES:
+            case DISCOVER_SERVICES:
+                Log.d(LOG_TAG, "Discovering services");
+                Toast.makeText(this, R.string.discovering_services, Toast.LENGTH_SHORT).show();
                 break;
-            case SERVICES_FOUND:
+            case REMOVE_SERVICE_REQUEST:
+                Log.d(LOG_TAG, "Stop discovering services");
+                Toast.makeText(this, R.string.stop_discovering_services, Toast.LENGTH_SHORT).show();
                 break;
-            case CREATING_SERVICE:
-                currentState = WifiP2pState.SERVICE_CREATED;
-                Log.d(LOG_TAG, "State -> SERVICE_CREATED");
-                Toast.makeText(this, R.string.service_created, Toast.LENGTH_LONG).show();
-                break;
-            case SERVICE_CREATED:
+            case REMOVE_SERVICE_REQUEST_TO_REQUEST_DNS_SD_TXT_RECORD:
+                lastAction = WiFiP2pAction.ADD_SERVICE_REQUEST;
+                wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
                 break;
         }
     }
@@ -226,33 +224,43 @@ public class WifiP2pActivity extends AppCompatActivity
         wifiP2pDnsSdServiceInfo = WifiP2pDnsSdServiceInfo.newInstance(name, WIFI_P2P_DNS_SD_SERVICE_TYPE, data);
         // The service information representing this APP------------------------------------------
 
+        // Change UI
+        textViewName.setText(name);
+
         // Change state
         currentState = WifiP2pState.INITIALIZED;
         Log.d(LOG_TAG, "State -> INITIALIZED");
     }
 
-    // Step 2: Start to discover nearby devices.
-    //  in WifiP2pReceiver callback function onReceive()
-    // Action is WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION
-    private void discoverNearbyDevices() {
-        wifiP2pManager.discoverPeers(wifiP2pChannel, this);
+    private void stopWifiP2p() {
+        if (currentState != WifiP2pState.FIRST) {
+            wifiP2pManager.cancelConnect(wifiP2pChannel, null);
+            wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, null);
+            if (wifiP2pDnsSdTxtRecordRequest != null) {
+                wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, null);
+            }
+            wifiP2pManager.removeLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, null);
+            wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, null);
+            // Change state
+            currentState = WifiP2pState.FIRST;
+            Log.d(LOG_TAG, "State -> FIRST");
+        }
     }
 
-    // Step 3: Start to discover the devices running this APP
+    // Step 2: Start to discover the devices running this APP
+    // Next step is wifiP2pManager.discoverServices(wifiP2pChannel, this) in onSuccess()
     public void discoverNearbyServices() {
+        lastAction = WiFiP2pAction.ADD_SERVICE_REQUEST;
         wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
     }
 
-    // Step 4: Announce this device is running this APP
+    // Announce this device is running this APP
     public void announceService() {
-        currentState = WifiP2pState.CREATING_SERVICE;
-        Log.d(LOG_TAG, "State -> CREATING_SERVICE");
+        lastAction = WiFiP2pAction.ADD_LOCAL_SERVICE;
         wifiP2pManager.addLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, this);
     }
 
     public void searchServices() {
-        currentState = WifiP2pState.DISCOVERING_PEERS;
-        Log.d(LOG_TAG, "State -> DISCOVERING_PEERS");
         discoverNearbyServices();
     }
 }
