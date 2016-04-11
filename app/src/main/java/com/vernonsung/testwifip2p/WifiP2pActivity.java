@@ -7,15 +7,21 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -23,7 +29,8 @@ import java.util.Random;
 public class WifiP2pActivity extends AppCompatActivity
         implements WifiP2pManager.ActionListener,
                    WifiP2pManager.DnsSdServiceResponseListener,
-                   WifiP2pManager.DnsSdTxtRecordListener {
+                   WifiP2pManager.DnsSdTxtRecordListener,
+                   Handler.Callback {
     private enum WifiP2pAction {
         NONE,
         // Shout and silent
@@ -82,23 +89,33 @@ public class WifiP2pActivity extends AppCompatActivity
     private WifiP2pDataStage wifiP2pDataStage = WifiP2pDataStage.DATA_STOPPED;
     private String targetName;
     private WifiManager.WifiLock wifiLock = null;
+    private ArrayList<String> nearbyDevices;
+    private ArrayAdapter<String> listViewDevicesAdapter;
+    private Handler myHandler;
+    private static final int HANDLER_WHAT = 12;
+    private static final int HANDLER_DELAY_MS = 3000;
 
     // UI
     private TextView textViewName;
     private Button buttonShout;
     private Button buttonSearch;
     private Button buttonData;
+    private ListView listviewDevices;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_wifi_p2p);
 
+        // Variables
+        nearbyDevices = new ArrayList<>();
+
         // UI
         textViewName = (TextView)findViewById(R.id.textViewName);
         buttonShout = (Button)findViewById(R.id.buttonShout);
         buttonSearch = (Button)findViewById(R.id.buttonSearch);
         buttonData = (Button)findViewById(R.id.buttonData);
+        listviewDevices = (ListView)findViewById(R.id.listViewDevices);
         buttonShout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -114,7 +131,16 @@ public class WifiP2pActivity extends AppCompatActivity
         buttonData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                serviceData();
+                stopRequestingData();
+            }
+        });
+        listViewDevicesAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, nearbyDevices);
+        listviewDevices.setAdapter(listViewDevicesAdapter);
+        listviewDevices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String nearByDeviceName = nearbyDevices.get(position);
+                requestData(nearByDeviceName);
             }
         });
     }
@@ -123,6 +149,8 @@ public class WifiP2pActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         initialWifiP2p();
+        myHandler = new Handler(this);
+        myHandler.sendEmptyMessageDelayed(HANDLER_WHAT, HANDLER_DELAY_MS);
     }
 
     @Override
@@ -143,6 +171,7 @@ public class WifiP2pActivity extends AppCompatActivity
 
     @Override
     protected void onStop() {
+        myHandler.removeMessages(HANDLER_WHAT);
         stopWifiP2p();
         super.onStop();
     }
@@ -150,8 +179,9 @@ public class WifiP2pActivity extends AppCompatActivity
     // implement WifiP2pManager.DnsSdServiceResponseListener
     @Override
     public void onDnsSdServiceAvailable(String instanceName, String registrationType, WifiP2pDevice srcDevice) {
-        targetName = instanceName;
-        buttonData.setEnabled(true);
+        // Store the nearby device's name
+        nearbyDevices.add(instanceName);
+        listViewDevicesAdapter.notifyDataSetChanged();
         Log.d(LOG_TAG, "Found device " + instanceName);
         Toast.makeText(this, "Found device " + instanceName, Toast.LENGTH_SHORT).show();
     }
@@ -219,7 +249,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 break;
             case DISCOVER_SERVICES_DATA:
                 wifiP2pDataStage = WifiP2pDataStage.DATA_REQUESTED;
-                buttonData.setText(R.string.stop);
+                buttonData.setEnabled(true);
                 Log.d(LOG_TAG, "Stage -> DATA_REQUESTED");
                 Toast.makeText(this, R.string.requesting_service_data, Toast.LENGTH_SHORT).show();
                 break;
@@ -230,7 +260,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 break;
             case STOP_PEER_DISCOVERY_DATA:
                 wifiP2pDataStage = WifiP2pDataStage.DATA_STOPPED;
-                buttonData.setText(R.string.data);
+                buttonData.setEnabled(false);
                 Log.d(LOG_TAG, "Stage -> DATA_STOPPED");
                 Toast.makeText(this, R.string.stop_requesting_data, Toast.LENGTH_SHORT).show();
                 break;
@@ -250,6 +280,14 @@ public class WifiP2pActivity extends AppCompatActivity
         String msg = getActionFailReason(reason);
         Log.e(LOG_TAG, msg);
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public boolean handleMessage(Message msg) {
+        // TODO: Restart searching nearby devices running this APP
+        Log.d(LOG_TAG, "handlerMessage()");
+        myHandler.sendEmptyMessageDelayed(HANDLER_WHAT, HANDLER_DELAY_MS);
+        return false;
     }
 
     // Translate the reason why a Wi-Fi P2P command failed
@@ -365,6 +403,9 @@ public class WifiP2pActivity extends AppCompatActivity
     // Step 2: Start to discover the devices running this APP
     // Next step is "Search services" part in onSuccess()
     public void discoverNearbyServices() {
+        // Remove all out of date devices
+        nearbyDevices.clear();
+        // Use new request to discovery devices
         lastAction = WifiP2pAction.ADD_SERVICE_REQUEST;
         wifiP2pManager.addServiceRequest(wifiP2pChannel, wifiP2pDnsSdServiceRequest, this);
     }
@@ -389,7 +430,8 @@ public class WifiP2pActivity extends AppCompatActivity
 
     // Step 3: Start to request specify device's data
     // Next step is "Request data" part in onSuccess()
-    public void requestData() {
+    public void requestData(String nearbyDeviceName) {
+        targetName = nearbyDeviceName;
         lastAction = WifiP2pAction.DISCOVER_PEERS_DATA;
         wifiP2pManager.discoverPeers(wifiP2pChannel, this);
     }
@@ -399,16 +441,5 @@ public class WifiP2pActivity extends AppCompatActivity
     public void stopRequestingData() {
         lastAction = WifiP2pAction.REMOVE_SERVICE_REQUEST_DATA;
         wifiP2pManager.removeServiceRequest(wifiP2pChannel, wifiP2pDnsSdTxtRecordRequest, this);
-    }
-
-    public void serviceData() {
-        switch (wifiP2pDataStage) {
-            case DATA_REQUESTED:
-                stopRequestingData();
-                break;
-            case DATA_STOPPED:
-                requestData();
-                break;
-        }
     }
 }

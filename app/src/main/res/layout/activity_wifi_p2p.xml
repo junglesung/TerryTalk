@@ -34,10 +34,16 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/data"
+        android:text="@string/stop"
         android:id="@+id/buttonData"
         android:layout_below="@id/textViewName"
         android:layout_toEndOf="@id/buttonSearch"
         android:enabled="false" />
+    <ListView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/listViewDevices"
+        android:layout_below="@+id/buttonShout"
+        android:layout_alignParentStart="true" />
 
 </RelativeLayout>
