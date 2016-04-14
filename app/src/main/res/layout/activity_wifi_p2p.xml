@@ -27,17 +27,10 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/search"
-        android:id="@+id/buttonSearch"
-        android:layout_below="@id/textViewName"
-        android:layout_toEndOf="@id/buttonShout" />
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
         android:text="@string/stop"
-        android:id="@+id/buttonData"
+        android:id="@+id/buttonStop"
         android:layout_below="@id/textViewName"
-        android:layout_toEndOf="@id/buttonSearch"
+        android:layout_toEndOf="@id/buttonShout"
         android:enabled="false" />
     <ListView
         android:layout_width="wrap_content"
