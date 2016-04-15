@@ -47,6 +47,8 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // discover the devices running this APP
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
         Log.d(LOG_TAG, "Nearby devices changed");
+        // Vernon debug
+//        wifiP2pManager.requestPeers(wifiP2pChannel, wifiP2pActivity);
     }
 
     private void wifiP2pConnectionChangeActionHandler(Intent intent) {
@@ -94,23 +96,8 @@ public class WifiP2pReceiver extends BroadcastReceiver {
                 Log.d(LOG_TAG, "Nearby device discovery starts");
                 break;
             case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
-                Log.d(LOG_TAG, "Nearby device discovery stops");
+                wifiP2pActivity.restartPeerDiscoverInAccident();
                 break;
         }
-
-        // Start Wifi P2P peer discovery if it's stopped
-//        if (status != WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
-//            wifiP2pManager.discoverPeers(wifiP2pChannel, new WifiP2pManager.ActionListener() {
-//                @Override
-//                public void onSuccess() {
-//                    Log.d(LOG_TAG, "Restart nearby device discovery successfully");
-//                }
-//
-//                @Override
-//                public void onFailure(int reason) {
-//                    Log.d(LOG_TAG, "Restart nearby device discovery failed");
-//                }
-//            });
-//        }
     }
 }
