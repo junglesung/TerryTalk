@@ -4,10 +4,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.NetworkInfo;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
 import android.widget.Toast;
+
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
 
 public class WifiP2pReceiver extends BroadcastReceiver {
     private static final String LOG_TAG = "testtest";
@@ -48,10 +56,13 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
         Log.d(LOG_TAG, "Nearby devices changed");
         // Vernon debug
-//        wifiP2pManager.requestPeers(wifiP2pChannel, wifiP2pActivity);
+        wifiP2pManager.requestPeers(wifiP2pChannel, wifiP2pActivity);
     }
 
     private void wifiP2pConnectionChangeActionHandler(Intent intent) {
+        // Vernon debug
+        wifiP2pActivity.startDiscoverPeer();
+
         // Get network info to check the connection is established or broken
         NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
         if (!networkInfo.isConnected()) {
@@ -80,12 +91,44 @@ public class WifiP2pReceiver extends BroadcastReceiver {
 //            wifiP2pManager.requestGroupInfo(wifiP2pChannel, nGroupInfoListener);
 //        } else {
 //            // >= 4.3 API 18
-//            WifiP2pGroup groupInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_GROUP);
+            WifiP2pGroup groupInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_GROUP);
+        String interfaceName = groupInfo.getInterface();
+        InetAddress ip = getIpByInterface(interfaceName);
+        String iipp = (ip == null)? null : ip.getHostAddress();
+        String msg = "My IP " + iipp + " NIC " + interfaceName;
+        Log.d(LOG_TAG, msg);
+        Toast.makeText(wifiP2pActivity, msg, Toast.LENGTH_SHORT).show();
 //        }
 
         // Begin the rest processes to CONNECTED state
         wifiP2pActivity.setTargetStateConnected();
     }
+
+    // Vernon debug
+    private InetAddress getIpByInterface(String interfaceName) {
+        // byte ip[]=null;
+        try {
+            ArrayList<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface i : interfaces) {
+                Log.d(LOG_TAG, "NIC " + i.getName() + " v.s " + interfaceName);
+                if (i.getName().equals(interfaceName)) {
+                    ArrayList<InetAddress> addresses = Collections.list(i.getInetAddresses());
+                    for (InetAddress a : addresses) {
+                        if (!a.isLoopbackAddress() && a instanceof Inet4Address && a.getHostAddress().startsWith("192")) {
+                            return a;
+                        } else {
+                            Log.d(LOG_TAG, "IP " + a.getHostAddress() + " is found but not what we want");
+                        }
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            Log.d("SocketException ", ex.toString());
+        }
+        Log.e(LOG_TAG, "No useful IP");
+        return null;
+    }
+
 
     // Notify if nearby device discovery starts or stops
     private void wifiP2pDiscoveryChangedActionHandler(Intent intent) {

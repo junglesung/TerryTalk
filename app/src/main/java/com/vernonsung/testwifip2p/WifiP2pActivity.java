@@ -25,6 +25,8 @@ import android.widget.Toast;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -89,6 +91,52 @@ public class WifiP2pActivity extends AppCompatActivity
         }
     };
 
+    // Vernon debug
+    private static final String Z3_DISPLAY = "Z3";
+    private static final String M4_DISPLAY = "M4";
+    private static final String NOTE_12_2_DISPLAY = "Note Pro 12.2";
+    private static final String Z3_MAC = "86:8e:df:79:08:d8";
+    private static final String M4_MAC = "5a:48:22:62:af:30";
+    private static final String NOTE_12_2_MAC = "b6:3a:28:d6:7c:4e";
+    private AdapterView.OnItemClickListener listViewDeviceMacOnItemClickListener = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            targetName = nearbyDevices.get(position);
+            switch (targetName) {
+                case Z3_DISPLAY:
+                    targetMac = Z3_MAC;
+                    break;
+                case M4_DISPLAY:
+                    targetMac = M4_MAC;
+                    break;
+                case NOTE_12_2_DISPLAY:
+                    targetMac = NOTE_12_2_MAC;
+                    break;
+                default:
+                    targetMac = targetName;
+            }
+            WifiP2pConfig wifiP2pConfig = new WifiP2pConfig();
+            wifiP2pConfig.deviceAddress = targetMac;
+            wifiP2pConfig.groupOwnerIntent = 0;
+//            wifiP2pConfig.wps.setup = WpsInfo.PBC;
+            wifiP2pManager.connect(wifiP2pChannel, wifiP2pConfig, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    String msg = "Connect " + WifiP2pActivity.this.targetName;
+                    Log.d(LOG_TAG, msg);
+                    Toast.makeText(WifiP2pActivity.this, msg, Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    String msg = WifiP2pActivity.this.targetName + " " + getActionFailReason(reason);
+                    Log.d(LOG_TAG, msg);
+                    Toast.makeText(WifiP2pActivity.this, msg, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -116,13 +164,17 @@ public class WifiP2pActivity extends AppCompatActivity
         });
         listViewDevicesAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, nearbyDevices);
         listviewDevices.setAdapter(listViewDevicesAdapter);
-        listviewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+        // Vernon debug
+        listviewDevices.setOnItemClickListener(listViewDeviceMacOnItemClickListener);
+//        listviewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        // Vernon debug
         initializeWifiP2p();
+//        goToNextState();
         retryHandler = new Handler(this);
         retryHandler.sendEmptyMessageDelayed(HANDLER_WHAT, HANDLER_DELAY_MS);
     }
@@ -152,32 +204,25 @@ public class WifiP2pActivity extends AppCompatActivity
 
     @Override
     public void onPeersAvailable(WifiP2pDeviceList peers) {
-//        WifiP2pDevice device = peers.get("86:8e:df:79:08:d8");
-        WifiP2pDevice device = peers.get("b6:3a:28:d6:7c:4e");
-        if (device == null) {
-            Log.d(LOG_TAG, "Can't find device 86:8e:df:79:08:d8");
-            Toast.makeText(this, "Can't find device 86:8e:df:79:08:d8", Toast.LENGTH_SHORT).show();
-            return;
+        // Vernon debug
+        nearbyDevices.clear();
+        Collection<WifiP2pDevice> devices = peers.getDeviceList();
+        for (WifiP2pDevice device : devices) {
+            switch (device.deviceAddress) {
+                case Z3_MAC:
+                    nearbyDevices.add(Z3_DISPLAY);
+                    break;
+                case M4_MAC:
+                    nearbyDevices.add(M4_DISPLAY);
+                    break;
+                case NOTE_12_2_MAC:
+                    nearbyDevices.add(NOTE_12_2_DISPLAY);
+                    break;
+                default:
+                    nearbyDevices.add(device.deviceAddress);
+            }
         }
-
-        WifiP2pConfig wifiP2pConfig = new WifiP2pConfig();
-        wifiP2pConfig.deviceAddress = device.deviceAddress;
-        targetMac = device.deviceAddress;
-//        wifiP2pConfig.wps.setup = WpsInfo.PBC;
-        wifiP2pManager.connect(wifiP2pChannel, wifiP2pConfig, new WifiP2pManager.ActionListener() {
-            @Override
-            public void onSuccess() {
-                Log.d(LOG_TAG, WifiP2pActivity.this.targetMac + "Connected");
-                Toast.makeText(WifiP2pActivity.this, WifiP2pActivity.this.targetMac + "Connected", Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onFailure(int reason) {
-                String msg = getActionFailReason(reason);
-                Log.d(LOG_TAG, msg);
-                Toast.makeText(WifiP2pActivity.this, msg, Toast.LENGTH_SHORT).show();
-            }
-        });
+        listViewDevicesAdapter.notifyDataSetChanged();
     }
 
     // implement WifiP2pManager.DnsSdServiceResponseListener
@@ -292,9 +337,25 @@ public class WifiP2pActivity extends AppCompatActivity
         wifiLock.acquire();
 
         // Vernon debug
-//        wifiP2pManager.discoverPeers(wifiP2pChannel, null);
+        startDiscoverPeer();
         // Change state
-        goToNextState();
+//        goToNextState();
+    }
+
+    // Vernon debug
+    public void startDiscoverPeer() {
+        // Vernon debug
+        wifiP2pManager.discoverPeers(wifiP2pChannel, new WifiP2pManager.ActionListener() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(WifiP2pActivity.this, "Discover peers", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFailure(int reason) {
+                Toast.makeText(WifiP2pActivity.this, WifiP2pActivity.this.getActionFailReason(reason), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void initialized() {
@@ -306,7 +367,8 @@ public class WifiP2pActivity extends AppCompatActivity
     }
 
     private void stopWifiP2p() {
-        if (currentState != WifiP2pState.NON_INITIALIZED) {
+        // Vernon debug
+//        if (currentState != WifiP2pState.NON_INITIALIZED) {
             if (wifiLock != null) {
                 wifiLock.release();
             }
@@ -318,7 +380,7 @@ public class WifiP2pActivity extends AppCompatActivity
             }
             wifiP2pManager.removeLocalService(wifiP2pChannel, wifiP2pDnsSdServiceInfo, null);
             wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, null);
-        }
+//        }
 
         // Change state
         Log.d(LOG_TAG, currentState + " -> " + WifiP2pState.NON_INITIALIZED);
@@ -404,7 +466,7 @@ public class WifiP2pActivity extends AppCompatActivity
 //        if (currentState == WifiP2pState.SEARCHING ||
 //                currentState == WifiP2pState.DATA_REQUESTED ||
 //                currentState == WifiP2pState.CONNECTING) {
-////            wifiP2pManager.discoverPeers(wifiP2pChannel, null);
+//            wifiP2pManager.discoverPeers(wifiP2pChannel, null);
 //            goToNextState();
 //            Log.d(LOG_TAG, "Finite state machine part restarts");
 //        } else {
