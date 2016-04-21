@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">TestWifiP2p</string>
     <string name="name">Name</string>
+    <string name="ip">IP</string>
     <string name="shout">Shout</string>
     <string name="silent">Silent</string>
     <string name="search">Search</string>
@@ -17,4 +18,10 @@
     <string name="requesting_service_data">Requesting service data</string>
     <string name="stop_discovering_services">Stop discovering services</string>
     <string name="stop_requesting_data">Stop requesting data</string>
+    <string name="available">Available</string>
+    <string name="connected">Connected</string>
+    <string name="failed">Failed</string>
+    <string name="invited">Invited</string>
+    <string name="unavailable">Unavailable</string>
+    <string name="testwifip2p_is_still_running">TestWifiP2p is still running</string>
 </resources>

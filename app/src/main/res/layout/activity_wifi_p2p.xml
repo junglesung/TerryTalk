@@ -17,6 +17,15 @@
         android:id="@+id/textViewName"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/ip"
+        android:id="@+id/textViewIp"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@id/textViewName"
+        android:paddingLeft="10dp"/>
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
