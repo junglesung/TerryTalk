@@ -4,8 +4,6 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -21,11 +19,12 @@ import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 
-public class WifiP2pActivity extends AppCompatActivity {
+public class WifiP2pActivity extends AppCompatActivity
+        implements ServiceConnection {
     private static final String LOG_TAG = "testtest";
 
     // To show devices on the list
@@ -41,25 +40,13 @@ public class WifiP2pActivity extends AppCompatActivity {
 
     // Service binder
     private WifiP2pService wifiP2pService;
-    private ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            WifiP2pService.LocalBinder binder = (WifiP2pService.LocalBinder)service;
-            wifiP2pService = binder.getService();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            wifiP2pService = null;
-        }
-    };
 
     // UI
     private TextView textViewName;
     private TextView textViewIp;
     private Button buttonShout;
     private Button buttonStop;
-    private ListView listviewDevices;
+    private ListView listViewDevices;
 
     // Function objects
     private AdapterView.OnItemClickListener listViewDevicesOnItemClickListener = new AdapterView.OnItemClickListener() {
@@ -84,7 +71,13 @@ public class WifiP2pActivity extends AppCompatActivity {
         textViewIp = (TextView)findViewById(R.id.textViewIp);
         buttonShout = (Button)findViewById(R.id.buttonShout);
         buttonStop = (Button)findViewById(R.id.buttonStop);
-        listviewDevices = (ListView)findViewById(R.id.listViewDevices);
+        listViewDevices = (ListView)findViewById(R.id.listViewDevices);
+        textViewName.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+            }
+        });
         buttonShout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -102,8 +95,8 @@ public class WifiP2pActivity extends AppCompatActivity {
                                                    android.R.layout.simple_list_item_2,
                                                    new String[] {MAP_ID_DEVICE_NAME, MAP_ID_STATUS},
                                                    new int[] {android.R.id.text1, android.R.id.text2});
-        listviewDevices.setAdapter(listViewDevicesAdapter);
-        listviewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+        listViewDevices.setAdapter(listViewDevicesAdapter);
+        listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
     }
 
     @Override
@@ -116,7 +109,7 @@ public class WifiP2pActivity extends AppCompatActivity {
         super.onResume();
         // Bind the service
         Intent intent = new Intent(this, WifiP2pService.class);
-        bindService(intent, serviceConnection, 0);
+        bindService(intent, this, 0);
         // Receive intents related to Wi-Fi P2p
         registerReceiver(wifiP2pActivityReceiver, wifiP2pIntentFilter);
         // Receive intents from the service
@@ -137,6 +130,22 @@ public class WifiP2pActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        WifiP2pService.LocalBinder binder = (WifiP2pService.LocalBinder)service;
+        wifiP2pService = binder.getService();
+        // Update data from the service
+        updateStateFromService();
+        updateIpFromService();
+        updateNearByDevicesFromService();
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        wifiP2pService = null;
+        Log.d(LOG_TAG, "Service disconnected");
     }
 
     private void initializeBroadcastReceiver() {
@@ -184,26 +193,10 @@ public class WifiP2pActivity extends AppCompatActivity {
 
     public void showDeviceName(String name) {
         textViewName.setText(name);
-        textViewName.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            }
-        });
     }
 
     public void setIp(String ip) {
         textViewIp.setText(ip);
-    }
-
-    public void updateNearByDevicesFromService() {
-        if (wifiP2pService == null) {
-            Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        nearbyDevices = wifiP2pService.getNearbyDevices();
-        listViewDevicesAdapter.notifyDataSetChanged();
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
@@ -213,7 +206,7 @@ public class WifiP2pActivity extends AppCompatActivity {
                 buttonShout.setEnabled(false);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
-                listviewDevices.setOnItemClickListener(null);
+                listViewDevices.setOnItemClickListener(null);
                 break;
             case INITIALIZE_WIFI_P2P:
                 break;
@@ -222,7 +215,7 @@ public class WifiP2pActivity extends AppCompatActivity {
                 buttonShout.setEnabled(true);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
-                listviewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case DISCOVER_PEERS:
                 break;
@@ -245,7 +238,7 @@ public class WifiP2pActivity extends AppCompatActivity {
                 buttonShout.setEnabled(true);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
-                listviewDevices.setOnItemClickListener(null);
+                listViewDevices.setOnItemClickListener(null);
                 break;
             case UPDATE_CLIENT_LIST:
                 break;
@@ -264,7 +257,7 @@ public class WifiP2pActivity extends AppCompatActivity {
                 buttonShout.setEnabled(true);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
-                listviewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case STOP_PEER_DISCOVERY_SHOUT:
                 break;
@@ -273,7 +266,7 @@ public class WifiP2pActivity extends AppCompatActivity {
                 buttonShout.setEnabled(false);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
-                listviewDevices.setOnItemClickListener(null);
+                listViewDevices.setOnItemClickListener(null);
                 break;
             case ADD_SERVICE_REQUEST_DATA:
                 break;
@@ -306,5 +299,40 @@ public class WifiP2pActivity extends AppCompatActivity {
             case REMOVE_GROUP:
                 break;
         }
+    }
+
+    public void updateNearByDevicesFromService() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        nearbyDevices = wifiP2pService.getNearbyDevices();
+        listViewDevicesAdapter.notifyDataSetChanged();
+    }
+
+    private void updateIpFromService() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String msg;
+        InetAddress ip = wifiP2pService.getWifiP2pDeviceIp();
+        if (ip == null) {
+            msg = "";
+        } else {
+            msg = ip.getHostAddress();
+        }
+        setIp(msg);
+    }
+
+    private void updateStateFromService() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setState(wifiP2pService.getCurrentState());
     }
 }

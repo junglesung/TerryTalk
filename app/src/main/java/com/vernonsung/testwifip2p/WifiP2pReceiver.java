@@ -9,26 +9,12 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
-import android.widget.Toast;
-
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
 
 public class WifiP2pReceiver extends BroadcastReceiver {
     private static final String LOG_TAG = "testtest";
-    private WifiP2pManager wifiP2pManager;
-    private WifiP2pManager.Channel wifiP2pChannel;
     private WifiP2pService wifiP2pService;  // APP activity to deal Wi-Fi P2P
 
-    public WifiP2pReceiver(WifiP2pManager wifiP2pManager,
-                           WifiP2pManager.Channel wifiP2pChannel,
-                           WifiP2pService wifiP2pService) {
-        this.wifiP2pManager = wifiP2pManager;
-        this.wifiP2pChannel = wifiP2pChannel;
+    public WifiP2pReceiver(WifiP2pService wifiP2pService) {
         this.wifiP2pService = wifiP2pService;
     }
 
@@ -56,8 +42,6 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // discover the devices running this APP
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
         Log.d(LOG_TAG, "Nearby devices changed");
-        // Vernon debug
-        wifiP2pManager.requestPeers(wifiP2pChannel, wifiP2pService);
     }
 
     private void wifiP2pConnectionChangeActionHandler(Intent intent) {
@@ -77,48 +61,6 @@ public class WifiP2pReceiver extends BroadcastReceiver {
             groupInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_GROUP);
         }
         wifiP2pService.connectionChangeActionHandler(networkInfo, wifiP2pInfo, groupInfo);
-        return;
-
-
-        // Get network info to check the connection is established or broken
-        NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
-        if (!networkInfo.isConnected()) {
-            Log.d(LOG_TAG, "Connection is broken");
-            Toast.makeText(wifiP2pService, "Connection is broken", Toast.LENGTH_SHORT).show();
-            // Go back to search nearby devices running this APP
-            wifiP2pService.setTargetStateSearching();
-            // It's not necessary to read group and P2P info
-            return;
-        }
-
-        // Get group owner IP from P2P info
-        WifiP2pInfo wifiP2pInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_INFO);
-        if (wifiP2pInfo.isGroupOwner) {
-            Log.d(LOG_TAG, "Connection is established. I'm the group owner");
-            Toast.makeText(wifiP2pService, "I'm the group owner", Toast.LENGTH_SHORT).show();
-        } else {
-            Log.d(LOG_TAG, "Connection is established. Group owner IP " + wifiP2pInfo.groupOwnerAddress.getHostAddress());
-            Toast.makeText(wifiP2pService, "Group owner IP " + wifiP2pInfo.groupOwnerAddress.getHostAddress(), Toast.LENGTH_SHORT).show();
-        }
-
-        // Get group info
-//        int currentApiVersion = android.os.Build.VERSION.SDK_INT;
-//        if (currentApiVersion < android.os.Build.VERSION_CODES.JELLY_BEAN_MR2) {
-//            // < 4.3 API 18
-//            wifiP2pManager.requestGroupInfo(wifiP2pChannel, nGroupInfoListener);
-//        } else {
-//            // >= 4.3 API 18
-            WifiP2pGroup groupInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_GROUP);
-        String interfaceName = groupInfo.getInterface();
-        InetAddress ip = getIpByInterface(interfaceName);
-        String iipp = (ip == null)? null : ip.getHostAddress();
-        String msg = "My IP " + iipp + " NIC " + interfaceName;
-        Log.d(LOG_TAG, msg);
-        Toast.makeText(wifiP2pService, msg, Toast.LENGTH_SHORT).show();
-//        }
-
-        // Begin the rest processes to CONNECTED state
-        wifiP2pService.setTargetStateConnected();
     }
 
     // After receiving an intent with action WIFI_P2P_THIS_DEVICE_CHANGED_ACTION,

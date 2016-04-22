@@ -3,12 +3,9 @@ package com.vernonsung.testwifip2p;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.NetworkInfo;
 import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
-import android.widget.Toast;
 
 public class WifiP2pActivityReceiver extends BroadcastReceiver {
     private static final String LOG_TAG = "testtest";
@@ -67,7 +64,11 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
     // After receiving an intent with action WifiP2pService.UPDATE_IP_ACTION
     // Show new IP
     private void updateIpActionHandler(Intent intent) {
-        wifiP2pActivity.setIp(intent.getStringExtra(WifiP2pService.INTENT_EXTRA_IP));
+        String ip = intent.getStringExtra(WifiP2pService.INTENT_EXTRA_IP);
+        if (ip == null) {
+            ip = "";
+        }
+        wifiP2pActivity.setIp(ip);
     }
 
 }
