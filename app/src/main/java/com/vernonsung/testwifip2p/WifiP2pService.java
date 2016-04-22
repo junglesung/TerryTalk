@@ -50,7 +50,7 @@ public class WifiP2pService extends Service
     }
 
     public enum WifiP2pState {
-        NON_INITIALIZED, INITIALIZE_WIFI_P2P, INITIALIZED,
+        NON_INITIALIZED, INITIALIZING, INITIALIZED,
         DISCOVER_PEERS, ADD_SERVICE_REQUEST, DISCOVER_SERVICES, SEARCHING, REMOVE_SERVICE_REQUEST, STOP_PEER_DISCOVERY, SEARCH_STOPPED,
         ADD_LOCAL_SERVICE, SHOUT, REMOVE_GROUP_SHOUT, CLIENT_REJECTED, UPDATE_CLIENT_LIST, AUDIO_STREAM_SETUP_KING, DISCOVER_PEERS_SHOUT,
         REMOVE_LOCAL_SERVICE, CLEAR_CLIENT_LIST, AUDIO_STREAM_DISMISS_KING, SILENT, STOP_PEER_DISCOVERY_SHOUT,
@@ -117,11 +117,8 @@ public class WifiP2pService extends Service
     public WifiP2pService() {
         // Variables
         nearbyDevices = new ArrayList<>();
-        // Make service running until manually stop it
-        turnIntoForeground();
-        // Initial
-        initialAudioStream();
-        initializeWifiP2p();
+        // Set a timer to retry some parts of the finite state machine in a regular interval
+        retryHandler = new Handler(this);
     }
 
     @Override
@@ -273,6 +270,9 @@ public class WifiP2pService extends Service
 
     // After receiving an intent with a "PLAY" action
     private void onActionPlay() {
+        if (currentState == WifiP2pState.NON_INITIALIZED) {
+            goToNextState();
+        }
     }
 
     // After receiving an intent with a "STOP" action
@@ -300,8 +300,8 @@ public class WifiP2pService extends Service
     private void turnIntoForeground() {
         int NOTIFICATION_ID = 1;
         // assign the song name to songName
-        PendingIntent pi = PendingIntent.getActivity(getApplicationContext(), 0,
-                new Intent(getApplicationContext(), WifiP2pActivity.class),
+        PendingIntent pi = PendingIntent.getActivity(this, 0,
+                new Intent(this, WifiP2pActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
@@ -378,6 +378,18 @@ public class WifiP2pService extends Service
     }
 
     // Part 1: Initial Wi-Fi P2P and necessary data-----------------------------------------------
+    private void initialAll() {
+        initialAudioStream();
+        initializeWifiP2p();
+        // Make service running until manually stop it
+        turnIntoForeground();
+
+        // Vernon debug
+//        vernonTestFunction();
+        // Change state
+        goToNextState();
+    }
+
     private void initialAudioStream() {
         // TODO: Merge TestAudioStream to use real port
         // Random a socket.
@@ -410,14 +422,6 @@ public class WifiP2pService extends Service
         wifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
                 .createWifiLock(WifiManager.WIFI_MODE_FULL, WIFI_LOCK);
         wifiLock.acquire();
-
-        // Set a timer to retry some parts of the finite state machine in a regular interval
-        retryHandler = new Handler(this);
-
-        // Vernon debug
-//        vernonTestFunction();
-        // Change state
-        goToNextState();
     }
 
     // Vernon debug
@@ -499,9 +503,6 @@ public class WifiP2pService extends Service
     private void serviceAnnounced() {
         serviceAnnounced = true;
         Toast.makeText(this, R.string.service_created, Toast.LENGTH_SHORT).show();
-        // Change state
-        targetState = WifiP2pState.SEARCHING;
-        goToNextState();
     }
 
     private void removeWifiP2pGroupShout() {
@@ -523,16 +524,20 @@ public class WifiP2pService extends Service
         serviceAnnounced = false;
         Toast.makeText(this, R.string.service_removed, Toast.LENGTH_SHORT).show();
         // Change state
-        targetState = WifiP2pState.SEARCHING;
+        if (currentState == targetState) {
+            targetState = WifiP2pState.SEARCHING;
+        }
         goToNextState();
     }
 
     private void updateClientList() {
         // TODO: After receiving WIFI_P2P_CONNECTION_CHANGED_ACTION broadcast intent, show the clients from extra parameter groupInfo on the listView in the activity
+        goToNextState();
     }
 
     private void audioStreamSetupKing() {
         // TODO: Setup the audio stream for the king
+        goToNextState();
     }
 
     private void discoverPeersShout() {
@@ -541,10 +546,12 @@ public class WifiP2pService extends Service
 
     private void clearClientList() {
         // TODO: Clear the listView in the activity
+        goToNextState();
     }
 
     private void audioStreamDismissKing() {
         // TODO: Dismiss the king's audio streams
+        goToNextState();
     }
 
     private void stopPeerDiscoveryShout() {
@@ -852,9 +859,9 @@ public class WifiP2pService extends Service
         WifiP2pState lastState = currentState;
         switch (currentState) {
             case NON_INITIALIZED:
-                currentState = WifiP2pState.INITIALIZE_WIFI_P2P;
+                currentState = WifiP2pState.INITIALIZING;
                 break;
-            case INITIALIZE_WIFI_P2P:
+            case INITIALIZING:
                 currentState = WifiP2pState.INITIALIZED;
                 break;
             case INITIALIZED:
@@ -1034,8 +1041,8 @@ public class WifiP2pService extends Service
             case NON_INITIALIZED:
                 nonInitialized();
                 break;
-            case INITIALIZE_WIFI_P2P:
-                initializeWifiP2p();
+            case INITIALIZING:
+                initialAll();
                 break;
             case INITIALIZED:
                 initialized();

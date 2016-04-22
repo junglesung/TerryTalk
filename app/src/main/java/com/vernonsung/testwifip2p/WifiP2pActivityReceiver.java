@@ -59,6 +59,7 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
         }
         WifiP2pService.WifiP2pState state = values[index];
         wifiP2pActivity.setState(state);
+        Log.d(LOG_TAG, "Set activity state " + state);
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_IP_ACTION
