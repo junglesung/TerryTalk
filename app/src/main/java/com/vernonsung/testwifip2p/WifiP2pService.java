@@ -233,7 +233,7 @@ public class WifiP2pService extends Service
         notifyActivityUpdateDeviceList();
         // Change state
         WifiP2pState lastTargetState = targetState;
-        targetState = WifiP2pState.CONNECTING;
+        setTargetState(WifiP2pState.CONNECTING);
         // Make the finite state machine move if it stops
         if (lastTargetState == currentState) {
             goToNextState();
@@ -287,7 +287,7 @@ public class WifiP2pService extends Service
     // After receiving an intent with a "CONNECT" action
     private void onActionConnect(Intent intent) {
         targetName = intent.getStringExtra(INTENT_EXTRA_TARGET);
-        targetState = WifiP2pState.DATA_REQUESTED;
+        setTargetState(WifiP2pState.DATA_REQUESTED);
         goToNextState();
     }
 
@@ -473,7 +473,7 @@ public class WifiP2pService extends Service
     // When buttonStop is clicked
     private void stopService() {
         WifiP2pState lastTargetState = targetState;
-        targetState = WifiP2pState.NON_INITIALIZED;
+        setTargetState(WifiP2pState.NON_INITIALIZED);
         // Make the finite state machine move if it stops
         if (lastTargetState == currentState) {
             goToNextState();
@@ -510,7 +510,7 @@ public class WifiP2pService extends Service
     }
 
     private void clientRejected() {
-        targetState = WifiP2pState.SHOUT;
+        setTargetState(WifiP2pState.SHOUT);
         goToNextState();
     }
 
@@ -525,7 +525,7 @@ public class WifiP2pService extends Service
         Toast.makeText(this, R.string.service_removed, Toast.LENGTH_SHORT).show();
         // Change state
         if (currentState == targetState) {
-            targetState = WifiP2pState.SEARCHING;
+            setTargetState(WifiP2pState.SEARCHING);
         }
         goToNextState();
     }
@@ -562,9 +562,9 @@ public class WifiP2pService extends Service
     private void localService() {
         WifiP2pState lastTargetState = targetState;
         if (serviceAnnounced) {
-            targetState = WifiP2pState.SILENT;
+            setTargetState(WifiP2pState.SILENT);
         } else {
-            targetState = WifiP2pState.SHOUT;
+            setTargetState(WifiP2pState.SHOUT);
         }
         // Make the finite state machine move if it stops
         if (lastTargetState == currentState) {
@@ -589,7 +589,7 @@ public class WifiP2pService extends Service
                 notifyActivityUpdateIp();
                 // Search nearby devices again
                 WifiP2pState lastTargetState = targetState;
-                targetState = WifiP2pState.SEARCHING;
+                setTargetState(WifiP2pState.SEARCHING);
                 // Make the finite state machine move if it stops
                 if (lastTargetState == currentState) {
                     goToNextState();
@@ -629,7 +629,7 @@ public class WifiP2pService extends Service
                 Toast.makeText(this, "I should be the group owner because I host the service", Toast.LENGTH_SHORT).show();
                 // Change state
                 WifiP2pState lastTargetState = targetState;
-                targetState = WifiP2pState.CLIENT_REJECTED;
+                setTargetState(WifiP2pState.CLIENT_REJECTED);
                 // Make the finite state machine move if it stops
                 if (lastTargetState == currentState) {
                     goToNextState();
@@ -637,7 +637,7 @@ public class WifiP2pService extends Service
             }
         } else if (groupInfo.isGroupOwner()) {
             // I'm a client. I should not be the group owner. Disconnect
-            targetState = WifiP2pState.CONNECTION_END;
+            setTargetState(WifiP2pState.CONNECTION_END);
             goToNextState();
         } else {
             // I'm a client and not a group owner. Well done
@@ -657,7 +657,7 @@ public class WifiP2pService extends Service
                     break;
                 }
             }
-            targetState = WifiP2pState.CONNECTED;
+            setTargetState(WifiP2pState.CONNECTED);
             goToNextState();
         }
 
@@ -837,7 +837,7 @@ public class WifiP2pService extends Service
     private void connectionEnd() {
         if (targetState == currentState) {
             // From CONNECTING state
-            targetState = WifiP2pState.SEARCHING;
+            setTargetState(WifiP2pState.SEARCHING);
         }
         goToNextState();
     }
@@ -1161,6 +1161,11 @@ public class WifiP2pService extends Service
     }
 
     // Getter and setter -------------------------------------------------------------------------
+    private void setTargetState(WifiP2pState state) {
+        Log.d(LOG_TAG, "Target state " + targetState + " -> " + state);
+        targetState = state;
+    }
+
     public String getWifiP2pDeviceName() {
         return wifiP2pDeviceName;
     }
