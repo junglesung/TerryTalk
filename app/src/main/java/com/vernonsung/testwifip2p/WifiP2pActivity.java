@@ -34,8 +34,6 @@ public class WifiP2pActivity extends AppCompatActivity
     private static final String LOG_TAG = "testtest";
 
     // To show devices on the list
-    private static final String MAP_ID_DEVICE_NAME = "deviceName";
-    private static final String MAP_ID_STATUS = "status";
     private ArrayList<HashMap<String, String>> nearbyDevices = new ArrayList<>();
     private SimpleAdapter listViewDevicesAdapter;
 
@@ -59,7 +57,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private AdapterView.OnItemClickListener listViewDevicesOnItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            String targetName = nearbyDevices.get(position).get(MAP_ID_DEVICE_NAME);
+            String targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
             serviceActionConnect(targetName);
         }
     };
@@ -96,7 +94,7 @@ public class WifiP2pActivity extends AppCompatActivity
         listViewDevicesAdapter = new SimpleAdapter(this,
                                                    nearbyDevices,
                                                    android.R.layout.simple_list_item_2,
-                                                   new String[] {MAP_ID_DEVICE_NAME, MAP_ID_STATUS},
+                                                   new String[] {WifiP2pService.MAP_ID_DEVICE_NAME, WifiP2pService.MAP_ID_STATUS},
                                                    new int[] {android.R.id.text1, android.R.id.text2});
         listViewDevices.setAdapter(listViewDevicesAdapter);
         listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
@@ -273,6 +271,7 @@ public class WifiP2pActivity extends AppCompatActivity
             case CONNECTING:
             case CANCEL_CONNECT:
             case DISCONNECTED:
+            case STOP_PEER_DISCOVERY_CONNECT:
             case AUDIO_STREAM_SETUP:
             case CONNECTED:
             case AUDIO_STREAM_DISMISS:
@@ -292,7 +291,9 @@ public class WifiP2pActivity extends AppCompatActivity
             Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
             return;
         }
-        nearbyDevices = wifiP2pService.getNearbyDevices();
+        nearbyDevices.clear();
+        nearbyDevices.addAll(wifiP2pService.getNearbyDevices());
+        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " devices now");
         listViewDevicesAdapter.notifyDataSetChanged();
     }
 
@@ -336,28 +337,38 @@ public class WifiP2pActivity extends AppCompatActivity
                     break;
             }
         }
-        unbindService(this);
-        Log.d(LOG_TAG, "Service unbound");
+        unbindWifiP2pService();
     }
 
     public void updateNearByDevicesFromService() {
         serviceTaskQueue.push(ServiceTask.UPDATE_DEVICES);
         if (wifiP2pService == null) {
-            bindService(new Intent(this, WifiP2pService.class), this, 0);
+            bindWifiP2pService();
         }
     }
 
     private void updateIpFromService() {
         serviceTaskQueue.push(ServiceTask.UPDATE_IP);
         if (wifiP2pService == null) {
-            bindService(new Intent(this, WifiP2pService.class), this, 0);
+            bindWifiP2pService();
         }
     }
 
     private void updateStateFromService() {
         serviceTaskQueue.push(ServiceTask.UPDATE_STATE);
         if (wifiP2pService == null) {
-            bindService(new Intent(this, WifiP2pService.class), this, 0);
+            bindWifiP2pService();
         }
+    }
+
+    private void bindWifiP2pService() {
+        Log.d(LOG_TAG, "I'm going to bind the service");
+        bindService(new Intent(this, WifiP2pService.class), this, 0);
+    }
+
+    private void unbindWifiP2pService() {
+        unbindService(this);
+        wifiP2pService = null;
+        Log.d(LOG_TAG, "Service unbound");
     }
 }

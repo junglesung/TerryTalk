@@ -45,6 +45,7 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
     // After receiving an intent with action WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION
     // Show the update device list
     private void updateNearbyDevicesActionHandler(Intent intent) {
+        Log.d(LOG_TAG, "I'm going to update nearby devices from the service");
         wifiP2pActivity.updateNearByDevicesFromService();
     }
 

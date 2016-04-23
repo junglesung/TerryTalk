@@ -54,7 +54,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
         int currentApiVersion = android.os.Build.VERSION.SDK_INT;
         if (currentApiVersion < android.os.Build.VERSION_CODES.JELLY_BEAN_MR2) {
             // < 4.3 API 18
-            Log.d(LOG_TAG, "SDK < 4.3 API 18, don't show client list");
+            Log.e(LOG_TAG, "SDK < 4.3 API 18, incompatible");
 //            wifiP2pManager.requestGroupInfo(wifiP2pChannel, nGroupInfoListener);
         } else {
             // >= 4.3 API 18
