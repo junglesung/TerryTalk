@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pGroup;
@@ -141,7 +140,7 @@ public class WifiP2pService extends Service
                 Log.e(LOG_TAG, "Unknown action " + intent.getAction());
                 break;
         }
-        // Restart service with last intent if it's killed by the system
+        // Don't restart service with last intent if it's killed by the system
         return START_NOT_STICKY;
     }
 
@@ -278,6 +277,8 @@ public class WifiP2pService extends Service
 
     // After receiving an intent with a "PLAY" action
     private void onActionPlay() {
+        // Make service running until manually stop it
+        turnIntoForeground();
         if (currentState == WifiP2pState.NON_INITIALIZED) {
             goToNextState();
         }
@@ -380,8 +381,6 @@ public class WifiP2pService extends Service
     private void initialAll() {
         initialAudioStream();
         initializeWifiP2p();
-        // Make service running until manually stop it
-        turnIntoForeground();
 
         // Vernon debug
 //        vernonTestFunction();
@@ -882,7 +881,7 @@ public class WifiP2pService extends Service
 
     // Finite state machine -----------------------------------------------------------------------
     // Go to next state when current state action is successful
-    public void goToNextState() {
+    private void goToNextState() {
         WifiP2pState lastState = currentState;
         switch (currentState) {
             case NON_INITIALIZED:
@@ -1072,7 +1071,7 @@ public class WifiP2pService extends Service
     }
 
     // Go to last state when current state action failed
-    public void goToPreviousState() {
+    private void goToPreviousState() {
         // TODO: switch (currentState)
     }
 
