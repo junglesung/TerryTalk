@@ -1,4 +1,4 @@
-package com.vernonsung.testwifip2p;
+package com.vernonsung.terrytalk;
 
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -310,7 +310,7 @@ public class WifiP2pService extends Service
                 PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
-                .setContentText(getString(R.string.testwifip2p_is_still_running))
+                .setContentText(getString(R.string.terrytalk_is_still_running))
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pi)
                 .build();

@@ -1,4 +1,4 @@
-package com.vernonsung.testwifip2p;
+package com.vernonsung.terrytalk;
 
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package com.vernonsung.testwifip2p;
+package com.vernonsung.terrytalk;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

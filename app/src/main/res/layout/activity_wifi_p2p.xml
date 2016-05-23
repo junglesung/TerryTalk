@@ -7,7 +7,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.vernonsung.testwifip2p.WifiP2pActivity">
+    tools:context="com.vernonsung.terrytalk.WifiP2pActivity">
 
     <TextView
         android:layout_width="wrap_content"
@@ -25,7 +25,7 @@
         android:id="@+id/textViewIp"
         android:layout_alignParentTop="true"
         android:layout_toEndOf="@id/textViewName"
-        android:paddingLeft="10dp"/>
+        android:paddingStart="10dp"/>
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

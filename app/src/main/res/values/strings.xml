@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TestWifiP2p</string>
+    <string name="app_name">TerryTalk</string>
     <string name="name">Name</string>
     <string name="ip">IP</string>
     <string name="shout">Shout</string>
@@ -23,5 +23,5 @@
     <string name="failed">Failed</string>
     <string name="invited">Invited</string>
     <string name="unavailable">Unavailable</string>
-    <string name="testwifip2p_is_still_running">TestWifiP2p is still running</string>
+    <string name="terrytalk_is_still_running">TerryTalk is still running</string>
 </resources>
