@@ -42,6 +42,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // discover the devices running this APP
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
         Log.d(LOG_TAG, "Nearby devices changed");
+        // TODO: Connect to last group in the future
     }
 
     private void wifiP2pConnectionChangeActionHandler(Intent intent) {
