@@ -746,7 +746,6 @@ public class WifiP2pService extends Service
     // Part 3: Discover the devices running this APP----------------------------------------------
     // When the command succeeds, onSuccess() will be called
     private void discoverNearbyDevices() {
-//        clearRememberedDevices();
         wifiP2pManager.discoverPeers(wifiP2pChannel, this);
     }
 
