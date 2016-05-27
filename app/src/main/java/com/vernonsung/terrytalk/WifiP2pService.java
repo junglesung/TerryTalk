@@ -34,6 +34,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -722,18 +723,31 @@ public class WifiP2pService extends Service
 
     private InetAddress getIpByInterface(String interfaceName) {
         try {
-            ArrayList<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface i : interfaces) {
-                Log.d(LOG_TAG, "NIC " + i.getName() + " v.s " + interfaceName);
-                if (i.getName().equals(interfaceName)) {
-                    ArrayList<InetAddress> addresses = Collections.list(i.getInetAddresses());
-                    for (InetAddress a : addresses) {
-                        if (!a.isLoopbackAddress() && a instanceof Inet4Address && a.getHostAddress().startsWith("192")) {
-                            return a;
-                        } else {
-                            Log.d(LOG_TAG, "IP " + a.getHostAddress() + " is found but not what we want");
-                        }
-                    }
+//            ArrayList<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+//            for (NetworkInterface i : interfaces) {
+//                Log.d(LOG_TAG, "NIC " + i.getName() + " v.s " + interfaceName);
+//                if (i.getName().equals(interfaceName)) {
+//                    ArrayList<InetAddress> addresses = Collections.list(i.getInetAddresses());
+//                    for (InetAddress a : addresses) {
+//                        if (!a.isLoopbackAddress() && a instanceof Inet4Address && a.getHostAddress().startsWith("192")) {
+//                            return a;
+//                        } else {
+//                            Log.d(LOG_TAG, "IP " + a.getHostAddress() + " is found but not what we want");
+//                        }
+//                    }
+//                }
+//            }
+            NetworkInterface networkInterface = NetworkInterface.getByName(interfaceName);
+            if (networkInterface == null) {
+                Log.e(LOG_TAG, "Interface " + interfaceName + " is not found");
+                return null;
+            }
+            Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+            for (InetAddress a : Collections.list(addresses)) {
+                if (!a.isLoopbackAddress() && a instanceof Inet4Address && a.getHostAddress().startsWith("192")) {
+                    return a;
+                } else {
+                    Log.d(LOG_TAG, "IP " + a.getHostAddress() + " is found but not what we want");
                 }
             }
         } catch (SocketException ex) {
