@@ -34,6 +34,7 @@ public class SocketServerThreads implements Runnable{
 
                 // Verify remote audio stream port
                 if (remoteAudioStreamPort <= 0 && remoteAudioStreamPort >= 65536) {
+                    Log.d(LOG_TAG, "Remote audio stream port " + String.valueOf(remoteAudioStreamPort) + " is invalid. Maybe it's a malicious client.");
                     return;
                 }
                 int localAudioStreamPort = setupAudioStream(remoteAudioStreamPort);
@@ -41,17 +42,19 @@ public class SocketServerThreads implements Runnable{
                 // Send local audio stream port
                 bufferedOutputStream.write(ByteBuffer.allocate(4).putInt(localAudioStreamPort).array());
                 bufferedOutputStream.flush();
+                Log.d(LOG_TAG, "Local audio stream port " + String.valueOf(localAudioStreamPort) + " sent");
             } catch (IOException e) {
-                Log.e(LOG_TAG, "Client " + socket.getRemoteSocketAddress() + " has no response.");
+                Log.e(LOG_TAG, "Client " + socket.getRemoteSocketAddress().toString() + " has no response. " + e.toString());
             } finally {
                 try {
                     if (socket != null && !socket.isClosed()) {
                         socket.close();
                     }
                 } catch (IOException e) {
-                    Log.d(LOG_TAG, "Close socket error becuase " + e.getMessage());
+                    Log.d(LOG_TAG, "Close socket error because " + e.toString());
                 }
             }
+            Log.d(LOG_TAG, "SocketServerThreads:SocketThread exits");
         }
 
         // Constructor--------------------------------------------------------------------------------
@@ -71,20 +74,18 @@ public class SocketServerThreads implements Runnable{
     private static final String LOG_TAG = "testtest";
     private static final int CONNECTION_WAITING_TIMEOUT = 1000;  // ms
     private static final int SOCKET_READ_TIMEOUT = 1000;  // ms
+    private ServerSocket serverSocket;
     private boolean toQuit = false;
-    private SocketAddress socketAddress = null;
 
     @Override
     public void run() {
+        // Check server socket
+        if (serverSocket.isClosed()) {
+            Log.e(LOG_TAG, "Server socket is closed");
+            return;
+        }
         try {
-            ServerSocket serverSocket = new ServerSocket();
             Socket socket;
-
-            // Bind to user specified IP and port
-            serverSocket.bind(socketAddress);
-
-            // Remember the bound IP and port
-            setSocketAddress(serverSocket.getLocalSocketAddress());
 
             // Set connection waiting timeout
             serverSocket.setSoTimeout(CONNECTION_WAITING_TIMEOUT);
@@ -104,16 +105,23 @@ public class SocketServerThreads implements Runnable{
 
                 i = 0;
             }
-        } catch (BindException e) {
-            Log.e(LOG_TAG, "Bind to " + socketAddress.toString() + " failed. Maybe the IP doesn't exist or the port is in use. Retry later please.");
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.d(LOG_TAG, "Server socket problem. " + e.toString());
+        } finally {
+            try {
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    serverSocket.close();
+                }
+            } catch (IOException e) {
+                Log.d(LOG_TAG, "Close socket error because " + e.toString());
+            }
         }
+        Log.d(LOG_TAG, "SocketServerThreads exits");
     }
 
-    // Constructor--------------------------------------------------------------------------------
-    public SocketServerThreads(SocketAddress socketAddress) {
-        this.socketAddress = socketAddress;
+    // Constructor -------------------------------------------------------------------------------
+    public SocketServerThreads(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
     }
 
     // Getter and setter--------------------------------------------------------------------------
@@ -123,14 +131,6 @@ public class SocketServerThreads implements Runnable{
 
     public synchronized void setToQuit(boolean toQuit) {
         this.toQuit = toQuit;
-    }
-
-    public synchronized SocketAddress getSocketAddress() {
-        return socketAddress;
-    }
-
-    private synchronized void setSocketAddress(SocketAddress socketAddress) {
-        this.socketAddress = socketAddress;
     }
 }
 

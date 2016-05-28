@@ -23,6 +23,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -30,6 +31,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,8 +58,8 @@ public class WifiP2pService extends Service
     public enum WifiP2pState {
         NON_INITIALIZED, INITIALIZING, INITIALIZED,
         DISCOVER_PEERS, ADD_SERVICE_REQUEST, DISCOVER_SERVICES, SEARCHING, REMOVE_SERVICE_REQUEST, STOP_PEER_DISCOVERY, SEARCH_STOPPED,
-        ADD_LOCAL_SERVICE, SHOUT, REMOVE_GROUP_SHOUT, CLEAR_REMEMBERED_GROUP_SHOUT, CLIENT_REJECTED, UPDATE_CLIENT_LIST, AUDIO_STREAM_SETUP_KING, DISCOVER_PEERS_SHOUT,
-        REMOVE_GROUP_SILENT, REMOVE_LOCAL_SERVICE, CLEAR_CLIENT_LIST, AUDIO_STREAM_DISMISS_KING, SILENT, STOP_PEER_DISCOVERY_SHOUT,
+        REGISTRATION_SETUP, ADD_LOCAL_SERVICE, SHOUT, REMOVE_GROUP_SHOUT, CLEAR_REMEMBERED_GROUP_SHOUT, CLIENT_REJECTED, UPDATE_CLIENT_LIST, AUDIO_STREAM_SETUP_KING, DISCOVER_PEERS_SHOUT,
+        REMOVE_GROUP_SILENT, REMOVE_LOCAL_SERVICE, CLEAR_CLIENT_LIST, AUDIO_STREAM_DISMISS_KING, REGISTRATION_DISMISS, SILENT, STOP_PEER_DISCOVERY_SHOUT,
         DISCOVER_PEERS_DATA, ADD_SERVICE_REQUEST_DATA, DISCOVER_SERVICES_DATA, DATA_REQUESTED,
         REMOVE_SERVICE_REQUEST_DATA, STOP_PEER_DISCOVERY_DATA, DATA_STOPPED,
         DISCOVER_PEERS_CONNECT, CONNECT, CONNECTING, CLEAR_REMEMBERED_GROUP_CONNECT, CANCEL_CONNECT, DISCONNECTED, STOP_PEER_DISCOVERY_CONNECT,
@@ -80,7 +82,6 @@ public class WifiP2pService extends Service
     public static final String INTENT_EXTRA_IP = "com.vernonsung.testwifip2p.ip";  // String
     // Wi-Fi Direct
     public static final String WIFI_P2P_DNS_SD_SERVICE_TYPE = "_test-wifi-p2p._udp";
-    private static final String WIFI_P2P_DNS_SD_SERVICE_DATA_IP = "ip";
     private static final String WIFI_P2P_DNS_SD_SERVICE_DATA_PORT = "port";
     private static final String WIFI_LOCK = "wifiLock";
     private WifiP2pManager wifiP2pManager;
@@ -99,6 +100,7 @@ public class WifiP2pService extends Service
     public static final String MAP_ID_DEVICE_NAME = "deviceName";
     public static final String MAP_ID_STATUS = "status";
     public static final String MAP_ID_MAC = "mac";
+    public static final String MAP_ID_REGISTRATION_PORT = "port";
     private ArrayList<HashMap<String, String>> nearbyDevices;
     private Handler retryHandler;
     private static final int HANDLER_WHAT = 12;
@@ -109,7 +111,13 @@ public class WifiP2pService extends Service
     private boolean serviceAnnounced = false;
     private boolean serviceConnedted = false;  // Indicate whether it can removeGroup()
     // Audio stream ------------------------------------------------------------------------------
-    private InetSocketAddress localSocket;
+    // TODO: Check whether to remove this variable
+//    private InetSocketAddress localSocket;
+    // Retistration ------------------------------------------------------------------------------
+    private SocketServerThreads socketServerThreads = null;
+    private Thread registrationThread = null;
+    private InetAddress serverIp;
+    private int serverPort;
 
     // Vernon debug
 //    private static final String Z3_DISPLAY = "Z3";
@@ -240,15 +248,16 @@ public class WifiP2pService extends Service
         }
         // Put ip and port into device status
         targetMac = srcDevice.deviceAddress;
-        String ip = txtRecordMap.get(WIFI_P2P_DNS_SD_SERVICE_DATA_IP);
         String port = txtRecordMap.get(WIFI_P2P_DNS_SD_SERVICE_DATA_PORT);
         String status = device.get(MAP_ID_STATUS);
-        if (status != null && !status.contains(ip)) {
-            status += " " + ip + ":" + port;
+        if (status != null && !status.contains(port)) {
+            status += " " + ":" + port;
             device.put(MAP_ID_STATUS, status);
         }
-        Log.d(LOG_TAG, targetMac + " " + ip + ":" + port);
-        Toast.makeText(this, targetMac + " " + ip + ":" + port, Toast.LENGTH_LONG).show();
+        Log.d(LOG_TAG, targetMac + " " + ":" + port);
+        Toast.makeText(this, targetMac + " " + ":" + port, Toast.LENGTH_LONG).show();
+        // Store registration port to register later
+        device.put(MAP_ID_REGISTRATION_PORT, port);
         // Notify the activity to update the list
         notifyActivityUpdateDeviceList();
         // Change state
@@ -403,11 +412,11 @@ public class WifiP2pService extends Service
 
     private void initialAudioStream() {
         // TODO: Merge TestAudioStream to use real port
-        // Random a socket.
-        Random random = new Random();
-        int random255 = random.nextInt(254) + 1;
-        int random65535 = random.nextInt(65534) + 1;
-        localSocket = new InetSocketAddress("192.168.0." + String.valueOf(random255), random65535);
+        // Vernon debug. Random a socket.
+//        Random random = new Random();
+//        int random255 = random.nextInt(254) + 1;
+//        int random65535 = random.nextInt(65534) + 1;
+//        localSocket = new InetSocketAddress("192.168.0." + String.valueOf(random255), random65535);
     }
 
     private void initializeWifiP2p() {
@@ -474,6 +483,14 @@ public class WifiP2pService extends Service
     }
 
     private void nonInitialized() {
+        // Stop receiving intents related to Wi-Fi P2p
+        try {
+            unregisterReceiver(wifiP2pReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(LOG_TAG, "Receiver is already unregistered");
+        }
+        Log.d(LOG_TAG, "Broadcast receiver unregistered");
+        // Release Wi-Fi lock
         if (wifiLock != null) {
             wifiLock.release();
         }
@@ -483,14 +500,13 @@ public class WifiP2pService extends Service
 
     // When buttonStop is clicked
     private void stopService(boolean forceMove) {
-        // Stop receiving intents related to Wi-Fi P2p
-        try {
-            unregisterReceiver(wifiP2pReceiver);
-        } catch (IllegalArgumentException e) {
-            Log.d(LOG_TAG, "Receiver is already unregistered");
-        }
-        Log.d(LOG_TAG, "Broadcast receiver unregistered");
         retryHandler.removeMessages(HANDLER_WHAT);
+        // Change state
+        if (currentState == WifiP2pState.NON_INITIALIZED) {
+            stopSelf();
+            return;
+        }
+        // Go towards NON_INITIALIZED
         WifiP2pState lastTargetState = targetState;
         setTargetState(WifiP2pState.NON_INITIALIZED);
         // Make the finite state machine move if it stops
@@ -500,14 +516,33 @@ public class WifiP2pService extends Service
     }
 
     // Part 2: Announce this device is running this APP-------------------------------------------
+    // Setup server socket thread to communicate with clients
+    private void registrationSetup() {
+        ServerSocket serverSocket;
+        try {
+            serverSocket = new ServerSocket(0);
+        } catch (IOException e) {
+            Log.d(LOG_TAG, "Create server socket failed because " + e.toString());
+            serverSocket = null;
+        }
+        if (serverSocket == null || serverSocket.isClosed()) {
+            Log.d(LOG_TAG, "Initial server socket failed. Terminate.");
+            setTargetState(WifiP2pState.NON_INITIALIZED);
+            goToNextState();
+            return;
+        }
+        serverPort = serverSocket.getLocalPort();
+        socketServerThreads = new SocketServerThreads(serverSocket);
+        registrationThread = new Thread(socketServerThreads, "RegistrationServer");
+        registrationThread.start();
+        goToNextState();
+    }
+
     // When the command succeeds, onSuccess() will be called
     private void announceService() {
-        // The service information representing this APP------------------------------------------
-        // TODO: Move this section to state ADD_LOCAL_SERVICE
         // Put socket information into Wi-Fi P2P service info
         Map<String, String> data = new HashMap<>();
-        data.put(WIFI_P2P_DNS_SD_SERVICE_DATA_IP, localSocket.getAddress().getHostAddress());
-        data.put(WIFI_P2P_DNS_SD_SERVICE_DATA_PORT, String.valueOf(localSocket.getPort()));
+        data.put(WIFI_P2P_DNS_SD_SERVICE_DATA_PORT, String.valueOf(serverPort));
         // Random a name if it doesn't exist
         if (wifiP2pDeviceName == null) {
             wifiP2pDeviceName = "_test" + String.valueOf(new Random().nextInt(10));
@@ -522,6 +557,14 @@ public class WifiP2pService extends Service
     private void serviceAnnounced() {
         serviceAnnounced = true;
         Toast.makeText(this, R.string.service_created, Toast.LENGTH_SHORT).show();
+        // Check registration socket thread
+        if (!registrationThread.isAlive()) {
+            Log.d(LOG_TAG, "Registration thread terminated accidentally.");
+            setTargetState(WifiP2pState.NON_INITIALIZED);
+            Toast.makeText(this, R.string.registration_service_terminated_accidentally, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, R.string.service_created, Toast.LENGTH_SHORT).show();
+        }
         // Let the finite state machine keep going
         if (targetState != currentState) {
             goToNextState();
@@ -589,6 +632,12 @@ public class WifiP2pService extends Service
         goToNextState();
     }
 
+    // Stop registration socket server thread as well as clear all audio streams
+    private void registrationDismiss() {
+        socketServerThreads.setToQuit(true);
+        goToNextState();
+    }
+
     private void stopPeerDiscoveryShout() {
         wifiP2pManager.stopPeerDiscovery(wifiP2pChannel, this);
     }
@@ -611,29 +660,31 @@ public class WifiP2pService extends Service
     public void connectionChangeActionHandler(NetworkInfo networkInfo, WifiP2pInfo wifiP2pInfo, WifiP2pGroup groupInfo) {
         // Check whether the connection is established or broken
         if (!networkInfo.isConnected()) {
-            serviceConnedted = false;
             Log.d(LOG_TAG, "Connection is broken");
             Toast.makeText(this, "Connection is broken", Toast.LENGTH_SHORT).show();
             // Change state
             if (serviceAnnounced) {  // Check serviceAnnounced instead of (currentState == SHOUT) because it may be in other state of part "shouted"
                 // I host the service.
-                // TODO: Check whether it'll receive WIFI_P2P_CONNECTION_CHANGED_ACTION if client A disconnects while client B is still connected
-                Log.d(LOG_TAG, "One of my client disconnected");
+                // Note: If client A disconnects while client B is still connected, networkInfo.isConnected() is true
+                Log.d(LOG_TAG, "All clients disconnected");
+                serviceConnedted = false;
+                // Clear clients on list view
+                nearbyDevices.clear();
+                notifyActivityUpdateDeviceList();
+                // Change state
                 if (currentState == WifiP2pState.SHOUT) {
                     goToNextState();
                 }
-            } else {
+            } else if (serviceConnedted) {
                 // I'm a client. Search nearby devices again.
                 Log.d(LOG_TAG, "I'm a client. Search nearby devices again.");
+                serviceConnedted = false;
                 // Remove IP
                 wifiP2pDeviceIp = null;
                 notifyActivityUpdateIp();
-                // Search nearby devices again
-                WifiP2pState lastTargetState = targetState;
-                setTargetState(WifiP2pState.SEARCHING);
-                // Make the finite state machine move if it stops
-                if (currentState == WifiP2pState.CONNECTED ||
-                        currentState == WifiP2pState.CONNECTING) {
+                // Search nearby devices again if the finite state machine is stopped and the connection is not canceled by me
+                if (currentState == targetState) {
+                    setTargetState(WifiP2pState.SEARCHING);
                     goToNextState();
                 }
             }
@@ -644,7 +695,8 @@ public class WifiP2pService extends Service
         // Connection established
         serviceConnedted = true;
 
-        // Get group owner IP
+        // Store group owner IP for registration
+        serverIp = wifiP2pInfo.groupOwnerAddress;
         String groupOwnerIp = wifiP2pInfo.groupOwnerAddress.getHostAddress();
         Log.d(LOG_TAG, "Connection is established. Group owner IP " + groupOwnerIp);
         Toast.makeText(this, "Group owner IP " + groupOwnerIp, Toast.LENGTH_SHORT).show();
@@ -661,11 +713,6 @@ public class WifiP2pService extends Service
         notifyActivityUpdateIp();
 
         // Get group clients
-        if (groupInfo == null) {
-            Log.e(LOG_TAG, "groupInfo = null");
-            Toast.makeText(this, "groupInfo = null", Toast.LENGTH_SHORT).show();
-            return;
-        }
         if (currentState == WifiP2pState.SHOUT) {
             // I host the service
             if (groupInfo.isGroupOwner()) {
@@ -703,6 +750,7 @@ public class WifiP2pService extends Service
             // Set the group owner's status to connected
             for (HashMap<String, String> device : nearbyDevices) {
                 if (device.get(MAP_ID_DEVICE_NAME).equals(targetName)) {
+                    // Change device status
                     try {
                         String status = device.get(MAP_ID_STATUS);
                         status = status.replaceFirst("^\\w+\\s", getDeviceState(groupInfo.getOwner()) + " ");
@@ -711,11 +759,19 @@ public class WifiP2pService extends Service
                     } catch (Exception e) {
                         // String.replaceFirst() may throw exceptions
                         e.printStackTrace();
-                        Log.e(LOG_TAG, "replace device status failed because " + e.getMessage());
+                        Log.e(LOG_TAG, "replace device status failed because " + e.toString());
+                    }
+                    // Store king's registration port to register later
+                    try {
+                        serverPort = Integer.parseInt(device.get(MAP_ID_REGISTRATION_PORT));
+                    } catch (NumberFormatException e) {
+                        Log.e(LOG_TAG, "Server registration port " + device.get(MAP_ID_REGISTRATION_PORT) + " is not valid");
+                        serverPort = 0;
                     }
                     break;
                 }
             }
+            // Change state
             setTargetState(WifiP2pState.CONNECTED);
             goToNextState();
         }
@@ -868,6 +924,7 @@ public class WifiP2pService extends Service
         wifiP2pManager.connect(wifiP2pChannel, wifiP2pConfig, this);
     }
 
+    // Move to next state after receiving WIFI_P2P_CONNECTION_CHANGED_ACTION
     private void connecting() {
         if (targetState != currentState) {
             goToNextState();
@@ -913,12 +970,31 @@ public class WifiP2pService extends Service
 
     // Step 6: Setup audio stream
     private void audioStreamSetup() {
-        // TODO: Integrate with TestAudioStream
+        // TODO: Create a new audio stream and send the port to the server
+        int fakePort = 54321;
+        // Register to the king
+        SocketClientTask socketClientTask = new SocketClientTask(
+                this,
+                new InetSocketAddress(wifiP2pDeviceIp, 0),
+                new InetSocketAddress(serverIp, serverPort),
+                fakePort);  // Vernon debug. Fake port. TODO: Replace by real port
+        socketClientTask.execute();
+        // After socketClientTask finished, audioStreamSetupPart2() will be called
+    }
+
+    // Called after socketClientTask finished
+    public void audioStreamSetupPart2(int remoteAudioStreamPort) {
+        if (remoteAudioStreamPort == 0) {
+            Log.d(LOG_TAG, "Registration failed");
+            setTargetState(WifiP2pState.CONNECTION_END);
+        } else {
+            // TODO: Associate audio stream to kings IP and port
+        }
         goToNextState();
     }
 
     private void audioStreamDismiss() {
-        // TODO: Integrate with TestAudioStream
+        // TODO: Deconstruct the audio stream
         goToNextState();
     }
 
@@ -934,7 +1010,7 @@ public class WifiP2pService extends Service
         try {
             PersistentGroupInfoListener = Class.forName("android.net.wifi.p2p.WifiP2pManager$PersistentGroupInfoListener");
         } catch (ClassNotFoundException e) {
-            Log.e(LOG_TAG, "Bug! Interface WifiP2pManager.PersistentGroupInfoListener not found, " + e.getMessage());
+            Log.e(LOG_TAG, "Bug! Interface WifiP2pManager.PersistentGroupInfoListener not found, " + e.toString());
             return;
         }
         // Get hidden method through Java reflection
@@ -963,14 +1039,14 @@ public class WifiP2pService extends Service
                         }
                     });
         } catch (Exception e) {
-            Log.e(LOG_TAG, "Bug! onPersistentGroupInfoAvailable() " + e.getMessage());
+            Log.e(LOG_TAG, "Bug! onPersistentGroupInfoAvailable() " + e.toString());
             return;
         }
         // Request remembered groups. clearRememberedDevicesStep2() will be called
         try {
             requestPersistentGroupInfo.invoke(wifiP2pManager, wifiP2pChannel, persistentGroupInfoListener);
         } catch (Exception e) {
-            Log.e(LOG_TAG, "Bug! requestPersistentGroupInfo() failed because " + e.getMessage());
+            Log.e(LOG_TAG, "Bug! requestPersistentGroupInfo() failed because " + e.toString());
         }
         Log.d(LOG_TAG, "Request remembered Wi-Fi direct groups");
     }
@@ -1036,7 +1112,7 @@ public class WifiP2pService extends Service
                 deletePersistentGroup.invoke(wifiP2pManager, wifiP2pChannel, netId, actionListener);
             }
         } catch (Exception e) {
-            Log.e(LOG_TAG, "Bug! getNetworkId() or deletePersistentGroup() failed because " + e.getMessage());
+            Log.e(LOG_TAG, "Bug! getNetworkId() or deletePersistentGroup() failed because " + e.toString());
         }
     }
 
@@ -1071,7 +1147,7 @@ public class WifiP2pService extends Service
                 break;
             case SEARCH_STOPPED:
                 if (targetState == WifiP2pState.SHOUT) {
-                    currentState = WifiP2pState.ADD_LOCAL_SERVICE;
+                    currentState = WifiP2pState.REGISTRATION_SETUP;
                 } else if (targetState == WifiP2pState.DATA_REQUESTED) {
                     currentState = WifiP2pState.DISCOVER_PEERS_DATA;
                 } else {  // if (targetState == WifiP2pState.SEARCHING || targetState == WifiP2pState.NON_INITIALIZED) {
@@ -1084,6 +1160,9 @@ public class WifiP2pService extends Service
                 } else {  // if (targetState == WifiP2pState.NON_INITIALIZED)
                     currentState = WifiP2pState.NON_INITIALIZED;
                 }
+                break;
+            case REGISTRATION_SETUP:
+                currentState = WifiP2pState.ADD_LOCAL_SERVICE;
                 break;
             case ADD_LOCAL_SERVICE:
                 currentState = WifiP2pState.SHOUT;
@@ -1125,6 +1204,9 @@ public class WifiP2pService extends Service
                 currentState = WifiP2pState.AUDIO_STREAM_DISMISS_KING;
                 break;
             case AUDIO_STREAM_DISMISS_KING:
+                currentState = WifiP2pState.REGISTRATION_DISMISS;
+                break;
+            case REGISTRATION_DISMISS:
                 currentState = WifiP2pState.SILENT;
                 break;
             case SILENT:
@@ -1168,8 +1250,8 @@ public class WifiP2pService extends Service
                     currentState = WifiP2pState.DISCOVER_PEERS_DATA;
                 } else if (targetState == WifiP2pState.SEARCHING) {
                     currentState = WifiP2pState.INITIALIZED;
-                } else {
-                    currentState = WifiP2pState.DISCOVER_PEERS_CONNECT;
+                } else {  // CONNECTING
+                    currentState = WifiP2pState.CONNECT;
                 }
                 break;
             case DISCOVER_PEERS_CONNECT:
@@ -1196,14 +1278,16 @@ public class WifiP2pService extends Service
             case DISCONNECTED:
                 if (targetState == WifiP2pState.CONNECTING) {
                     currentState = WifiP2pState.DISCOVER_PEERS_CONNECT;
-                } else if (targetState == WifiP2pState.NON_INITIALIZED){
+                } else { // SEARCHING, NON_INITIALIZED
                     currentState = WifiP2pState.STOP_PEER_DISCOVERY_CONNECT;
-                } else {  // SEARCHING
-                    currentState = WifiP2pState.INITIALIZED;
                 }
                 break;
             case STOP_PEER_DISCOVERY_CONNECT:
-                currentState = WifiP2pState.NON_INITIALIZED;
+                if (targetState == WifiP2pState.SEARCHING) {
+                    currentState = WifiP2pState.INITIALIZED;
+                } else {  // NON_INITIALIZED
+                    currentState = WifiP2pState.NON_INITIALIZED;
+                }
                 break;
             case AUDIO_STREAM_SETUP:
                 currentState = WifiP2pState.CONNECTED;
@@ -1275,6 +1359,9 @@ public class WifiP2pService extends Service
             case SEARCH_STOPPED:
                 goToNextState();
                 break;
+            case REGISTRATION_SETUP:
+                registrationSetup();
+                break;
             case ADD_LOCAL_SERVICE:
                 announceService();
                 break;
@@ -1310,6 +1397,9 @@ public class WifiP2pService extends Service
                 break;
             case AUDIO_STREAM_DISMISS_KING:
                 audioStreamDismissKing();
+                break;
+            case REGISTRATION_DISMISS:
+                registrationDismiss();
                 break;
             case SILENT:
                 serviceHided();

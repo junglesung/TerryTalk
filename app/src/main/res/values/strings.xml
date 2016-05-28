@@ -24,4 +24,5 @@
     <string name="invited">Invited</string>
     <string name="unavailable">Unavailable</string>
     <string name="terrytalk_is_still_running">TerryTalk is still running</string>
+    <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
 </resources>

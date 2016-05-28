@@ -214,7 +214,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 buttonShout.setText(R.string.shout);
                 buttonShout.setEnabled(false);
                 buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
+                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case INITIALIZED:
@@ -231,8 +231,12 @@ public class WifiP2pActivity extends AppCompatActivity
                 buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
+            case REGISTRATION_SETUP:
             case ADD_LOCAL_SERVICE:
             case SHOUT:
+            case REMOVE_GROUP_SHOUT:
+            case CLEAR_REMEMBERED_GROUP_SHOUT:
+            case CLIENT_REJECTED:
             case UPDATE_CLIENT_LIST:
             case AUDIO_STREAM_SETUP_KING:
             case DISCOVER_PEERS_SHOUT:
@@ -242,9 +246,11 @@ public class WifiP2pActivity extends AppCompatActivity
                 buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
+            case REMOVE_GROUP_SILENT:
             case REMOVE_LOCAL_SERVICE:
             case CLEAR_CLIENT_LIST:
             case AUDIO_STREAM_DISMISS_KING:
+            case REGISTRATION_DISMISS:
             case SILENT:
                 buttonShout.setText(R.string.shout);
                 buttonShout.setEnabled(true);
@@ -269,6 +275,7 @@ public class WifiP2pActivity extends AppCompatActivity
             case DISCOVER_PEERS_CONNECT:
             case CONNECT:
             case CONNECTING:
+            case CLEAR_REMEMBERED_GROUP_CONNECT:
             case CANCEL_CONNECT:
             case DISCONNECTED:
             case STOP_PEER_DISCOVERY_CONNECT:
@@ -276,6 +283,7 @@ public class WifiP2pActivity extends AppCompatActivity
             case CONNECTED:
             case AUDIO_STREAM_DISMISS:
             case REMOVE_GROUP:
+            case CONNECTION_END:
                 buttonShout.setText(R.string.shout);
                 buttonShout.setEnabled(false);
                 buttonStop.setText(R.string.stop);
