@@ -2,8 +2,14 @@ package com.vernonsung.terrytalk;
 
 import android.util.Log;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.BindException;
+import java.net.Socket;
+import java.net.SocketAddress;
 
 /**
  * A socket server which listen to clients' registration in order to establish audio stream
@@ -62,3 +68,4 @@ public class SocketClientThread implements Runnable {
         this.remoteSocketAddress = remoteSocketAddress;
     }
 }
+

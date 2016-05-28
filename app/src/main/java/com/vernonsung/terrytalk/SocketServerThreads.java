@@ -4,6 +4,7 @@ import android.util.Log;
 
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 
 /**
  * A socket client to register to the king and establish an audio stream
@@ -18,16 +19,28 @@ public class SocketServerThreads implements Runnable{
                 // Set read timeout
                 socket.setSoTimeout(SOCKET_READ_TIMEOUT);
                 // Socket IO
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                BufferedInputStream bufferedInputStream = new BufferedInputStream(socket.getInputStream());
+                BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
 
-                // Communicate with the client
-                String hello = bufferedReader.readLine();
-                bufferedWriter.write(hello);
-                bufferedWriter.flush();
-                socket.close();
+                // Receive remote audio stream port
+                byte[] buf = new byte[4];
+                int length = bufferedInputStream.read(buf);
+                if (length < 4) {
+                    Log.d(LOG_TAG, "Receive remote port failed with only " + String.valueOf(length) + " bytes. Maybe it's a malicious server.");
+                    return;
+                }
+                int remoteAudioStreamPort = ByteBuffer.wrap(buf).getInt();
+                Log.d(LOG_TAG, "Remote audio stream port " + String.valueOf(remoteAudioStreamPort));
 
-                Log.d(LOG_TAG, hello);
+                // Verify remote audio stream port
+                if (remoteAudioStreamPort <= 0 && remoteAudioStreamPort >= 65536) {
+                    return;
+                }
+                int localAudioStreamPort = setupAudioStream(remoteAudioStreamPort);
+
+                // Send local audio stream port
+                bufferedOutputStream.write(ByteBuffer.allocate(4).putInt(localAudioStreamPort).array());
+                bufferedOutputStream.flush();
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Client " + socket.getRemoteSocketAddress() + " has no response.");
             } finally {
@@ -44,6 +57,14 @@ public class SocketServerThreads implements Runnable{
         // Constructor--------------------------------------------------------------------------------
         public SocketThread(Socket socket) {
             this.socket = socket;
+        }
+
+        // Setup audio stream
+        private int setupAudioStream(int remoteAudioStreamPort) {
+            // TODO: Create an audio stream.
+            // TODO: Associate it to remote socket IP and remoteAudioStreamPort
+            // TODO: Return the audio stream local port
+            return 12345;  // Vernon debug. Fake port
         }
     }
 
