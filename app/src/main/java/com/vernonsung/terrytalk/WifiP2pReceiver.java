@@ -69,6 +69,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     private void wifiP2pThisDeviceChangedActionHandler(Intent intent) {
         WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
         wifiP2pService.setWifiP2pDeviceName(device.deviceName);
+        wifiP2pService.setWifiP2pDeviceMac(device.deviceAddress);
     }
 
     // Notify if nearby device discovery starts or stops

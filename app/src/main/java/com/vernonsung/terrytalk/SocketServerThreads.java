@@ -1,5 +1,6 @@
 package com.vernonsung.terrytalk;
 
+import android.support.annotation.NonNull;
 import android.util.Log;
 
 import java.io.*;
@@ -22,22 +23,22 @@ public class SocketServerThreads implements Runnable{
                 BufferedInputStream bufferedInputStream = new BufferedInputStream(socket.getInputStream());
                 BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
 
-                // Receive remote audio stream port
-                byte[] buf = new byte[4];
-                int length = bufferedInputStream.read(buf);
-                if (length < 4) {
-                    Log.d(LOG_TAG, "Receive remote port failed with only " + String.valueOf(length) + " bytes. Maybe it's a malicious server.");
+                // Receive clients data
+                String remoteMac = receiveRemoteMac(bufferedInputStream);
+                int remoteAudioStreamPort = receiveRemoteAudioStreamPort(bufferedInputStream);
+
+                // Verify remote mac audio stream port
+                if (remoteMac == null) {
                     return;
                 }
-                int remoteAudioStreamPort = ByteBuffer.wrap(buf).getInt();
-                Log.d(LOG_TAG, "Remote audio stream port " + String.valueOf(remoteAudioStreamPort));
-
-                // Verify remote audio stream port
                 if (remoteAudioStreamPort <= 0 && remoteAudioStreamPort >= 65536) {
                     Log.d(LOG_TAG, "Remote audio stream port " + String.valueOf(remoteAudioStreamPort) + " is invalid. Maybe it's a malicious client.");
                     return;
                 }
-                int localAudioStreamPort = setupAudioStream(remoteAudioStreamPort);
+                Log.d(LOG_TAG, "Remote audio stream port " + String.valueOf(remoteAudioStreamPort));
+
+                // Setup audio stream and get local audio stream port
+                int localAudioStreamPort = setupAudioStream(remoteMac, remoteAudioStreamPort);
 
                 // Send local audio stream port
                 bufferedOutputStream.write(ByteBuffer.allocate(4).putInt(localAudioStreamPort).array());
@@ -62,12 +63,35 @@ public class SocketServerThreads implements Runnable{
             this.socket = socket;
         }
 
+        // Receive remote device MAC address
+        private String receiveRemoteMac(BufferedInputStream bufferedInputStream) throws IOException {
+            byte[] buf = new byte[17];
+            int length = bufferedInputStream.read(buf);
+            if (length < buf.length) {
+                Log.d(LOG_TAG, "Receive remote MAC failed with only " + String.valueOf(length) + " bytes. Maybe it's a malicious server.");
+                return null;
+            }
+            return new String(buf);
+        }
+
+        // Receive remote audio stream port
+        private int receiveRemoteAudioStreamPort(BufferedInputStream bufferedInputStream) throws IOException {
+            byte[] buf = new byte[4];
+            int length = bufferedInputStream.read(buf);
+            if (length < buf.length) {
+                Log.d(LOG_TAG, "Receive remote port failed with only " + String.valueOf(length) + " bytes. Maybe it's a malicious server.");
+                return 0;
+            }
+            return ByteBuffer.wrap(buf).getInt();
+        }
+
         // Setup audio stream
-        private int setupAudioStream(int remoteAudioStreamPort) {
-            // TODO: Create an audio stream.
-            // TODO: Associate it to remote socket IP and remoteAudioStreamPort
-            // TODO: Return the audio stream local port
-            return 12345;  // Vernon debug. Fake port
+        private int setupAudioStream(String remoteMac, int remoteAudioStreamPort) {
+            // Vernon debug
+            Log.d(LOG_TAG, "Socket local address " + socket.getLocalAddress().getHostAddress());
+            return audioTransceiver.addStream(remoteMac,
+                    socket.getLocalAddress(),
+                    new InetSocketAddress(socket.getInetAddress(), remoteAudioStreamPort));
         }
     }
 
@@ -76,6 +100,7 @@ public class SocketServerThreads implements Runnable{
     private static final int SOCKET_READ_TIMEOUT = 1000;  // ms
     private ServerSocket serverSocket;
     private boolean toQuit = false;
+    private AudioTransceiver audioTransceiver;
 
     @Override
     public void run() {
@@ -119,9 +144,17 @@ public class SocketServerThreads implements Runnable{
         Log.d(LOG_TAG, "SocketServerThreads exits");
     }
 
-    // Constructor -------------------------------------------------------------------------------
-    public SocketServerThreads(ServerSocket serverSocket) {
+    /**
+     * Constructor
+     *
+     * @param serverSocket An opened server socket to receive clients' registration.
+     * @param audioTransceiver An initialized AudioTransceiver to add a new audio stream when each
+     *                         client registers.
+     */
+    public SocketServerThreads(@NonNull ServerSocket serverSocket,
+                               @NonNull AudioTransceiver audioTransceiver) {
         this.serverSocket = serverSocket;
+        this.audioTransceiver = audioTransceiver;
     }
 
     // Getter and setter--------------------------------------------------------------------------

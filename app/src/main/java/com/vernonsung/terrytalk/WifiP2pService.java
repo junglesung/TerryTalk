@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.NetworkInfo;
+import android.net.rtp.AudioStream;
 import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -92,10 +93,11 @@ public class WifiP2pService extends Service
     private WifiP2pDnsSdServiceRequest wifiP2pDnsSdTxtRecordRequest;
     private WifiP2pDnsSdServiceInfo wifiP2pDnsSdServiceInfo;
     private WifiManager.WifiLock wifiLock = null;
-    private String wifiP2pDeviceName;
-    private String targetName;
-    private String targetMac;
-    private InetAddress wifiP2pDeviceIp;
+    private String wifiP2pDeviceName;  // Local Wi-Fi direct device name for both server and clients.
+    private String wifiP2pDeviceMac;  // Local Wi-Fi direct device MAC address for both server and clients.
+    private String targetName;  // Remote Wi-Fi direct device name. Server name for clients.
+    private String targetMac;  // Remote MAC address. Server MAC address for clients.
+    private InetAddress wifiP2pDeviceIp;  // Local IP for both server and clients.
     // Nearby devices list -----------------------------------------------------------------------
     public static final String MAP_ID_DEVICE_NAME = "deviceName";
     public static final String MAP_ID_STATUS = "status";
@@ -109,15 +111,14 @@ public class WifiP2pService extends Service
     private WifiP2pState targetState = WifiP2pState.SEARCHING;  // Default
     private WifiP2pState currentState = WifiP2pState.NON_INITIALIZED;
     private boolean serviceAnnounced = false;
-    private boolean serviceConnedted = false;  // Indicate whether it can removeGroup()
+    private boolean serviceConnected = false;  // Indicate whether it can removeGroup()
     // Audio stream ------------------------------------------------------------------------------
-    // TODO: Check whether to remove this variable
-//    private InetSocketAddress localSocket;
-    // Retistration ------------------------------------------------------------------------------
+    private AudioTransceiver audioTransceiver = null;
+    // Registration ------------------------------------------------------------------------------
     private SocketServerThreads socketServerThreads = null;
     private Thread registrationThread = null;
-    private InetAddress serverIp;
-    private int serverPort;
+    private InetAddress serverIp;  // Registration server IP. Local IP for the server. Remote port for clients.
+    private int serverPort;        // Registration server port. Local port for the server. Remote port for clients.
 
     // Vernon debug
 //    private static final String Z3_DISPLAY = "Z3";
@@ -411,12 +412,7 @@ public class WifiP2pService extends Service
     }
 
     private void initialAudioStream() {
-        // TODO: Merge TestAudioStream to use real port
-        // Vernon debug. Random a socket.
-//        Random random = new Random();
-//        int random255 = random.nextInt(254) + 1;
-//        int random65535 = random.nextInt(65534) + 1;
-//        localSocket = new InetSocketAddress("192.168.0." + String.valueOf(random255), random65535);
+        audioTransceiver = new AudioTransceiver(this);
     }
 
     private void initializeWifiP2p() {
@@ -532,7 +528,7 @@ public class WifiP2pService extends Service
             return;
         }
         serverPort = serverSocket.getLocalPort();
-        socketServerThreads = new SocketServerThreads(serverSocket);
+        socketServerThreads = new SocketServerThreads(serverSocket, audioTransceiver);
         registrationThread = new Thread(socketServerThreads, "RegistrationServer");
         registrationThread.start();
         goToNextState();
@@ -572,7 +568,7 @@ public class WifiP2pService extends Service
     }
 
     private void removeWifiP2pGroupShout() {
-        if (serviceConnedted) {
+        if (serviceConnected) {
             wifiP2pManager.removeGroup(wifiP2pChannel, this);
         } else {
             goToNextState();
@@ -585,7 +581,7 @@ public class WifiP2pService extends Service
     }
 
     private void removeWifiP2pGroupSilent() {
-        if (serviceConnedted) {
+        if (serviceConnected) {
             wifiP2pManager.removeGroup(wifiP2pChannel, this);
         } else {
             goToNextState();
@@ -627,8 +623,9 @@ public class WifiP2pService extends Service
         goToNextState();
     }
 
+    // Clear all audio streams and stop playing audio
     private void audioStreamDismissKing() {
-        // TODO: Dismiss the king's audio streams
+        audioTransceiver.clearStreams();
         goToNextState();
     }
 
@@ -667,7 +664,7 @@ public class WifiP2pService extends Service
                 // I host the service.
                 // Note: If client A disconnects while client B is still connected, networkInfo.isConnected() is true
                 Log.d(LOG_TAG, "All clients disconnected");
-                serviceConnedted = false;
+                serviceConnected = false;
                 // Clear clients on list view
                 nearbyDevices.clear();
                 notifyActivityUpdateDeviceList();
@@ -675,10 +672,10 @@ public class WifiP2pService extends Service
                 if (currentState == WifiP2pState.SHOUT) {
                     goToNextState();
                 }
-            } else if (serviceConnedted) {
+            } else if (serviceConnected) {
                 // I'm a client. Search nearby devices again.
                 Log.d(LOG_TAG, "I'm a client. Search nearby devices again.");
-                serviceConnedted = false;
+                serviceConnected = false;
                 // Remove IP
                 wifiP2pDeviceIp = null;
                 notifyActivityUpdateIp();
@@ -693,7 +690,7 @@ public class WifiP2pService extends Service
         }
 
         // Connection established
-        serviceConnedted = true;
+        serviceConnected = true;
 
         // Store group owner IP for registration
         serverIp = wifiP2pInfo.groupOwnerAddress;
@@ -717,12 +714,14 @@ public class WifiP2pService extends Service
             // I host the service
             if (groupInfo.isGroupOwner()) {
                 // I'm the group owner. Show clients on list view
+                // TODO: Check newly disconnected client and remove it from audioTransceiver
                 Collection<WifiP2pDevice> devices = groupInfo.getClientList();
                 nearbyDevices.clear();
                 for (WifiP2pDevice device : devices) {
                     HashMap<String, String> a = new HashMap<>();
                     a.put(MAP_ID_DEVICE_NAME, device.deviceName);
                     a.put(MAP_ID_STATUS, getDeviceState(device));
+                    a.put(MAP_ID_MAC, device.deviceAddress);
                     nearbyDevices.add(a);
                 }
                 notifyActivityUpdateDeviceList();
@@ -953,7 +952,7 @@ public class WifiP2pService extends Service
     // Disconnect with the target device
     // When the command succeeds, onSuccess() will be called
     private void removeWifiP2pGroup() {
-        if (serviceConnedted) {
+        if (serviceConnected) {
             wifiP2pManager.removeGroup(wifiP2pChannel, this);
         } else {
             goToNextState();
@@ -970,31 +969,31 @@ public class WifiP2pService extends Service
 
     // Step 6: Setup audio stream
     private void audioStreamSetup() {
-        // TODO: Create a new audio stream and send the port to the server
-        int fakePort = 54321;
         // Register to the king
         SocketClientTask socketClientTask = new SocketClientTask(
                 this,
                 new InetSocketAddress(wifiP2pDeviceIp, 0),
                 new InetSocketAddress(serverIp, serverPort),
-                fakePort);  // Vernon debug. Fake port. TODO: Replace by real port
+                wifiP2pDeviceMac);
         socketClientTask.execute();
         // After socketClientTask finished, audioStreamSetupPart2() will be called
     }
 
     // Called after socketClientTask finished
-    public void audioStreamSetupPart2(int remoteAudioStreamPort) {
-        if (remoteAudioStreamPort == 0) {
+    public void audioStreamSetupPart2(AudioStream audioStream) {
+        if (audioStream == null) {
             Log.d(LOG_TAG, "Registration failed");
             setTargetState(WifiP2pState.CONNECTION_END);
         } else {
-            // TODO: Associate audio stream to kings IP and port
+            // Play the audio stream
+            audioTransceiver.addStream(targetMac, audioStream);
         }
         goToNextState();
     }
 
     private void audioStreamDismiss() {
-        // TODO: Deconstruct the audio stream
+        // Stop playing the audio stream
+        audioTransceiver.removeStream(targetMac);
         goToNextState();
     }
 
@@ -1481,6 +1480,14 @@ public class WifiP2pService extends Service
 
     public void setWifiP2pDeviceName(String wifiP2pDeviceName) {
         this.wifiP2pDeviceName = wifiP2pDeviceName;
+    }
+
+    public String getWifiP2pDeviceMac() {
+        return wifiP2pDeviceMac;
+    }
+
+    public void setWifiP2pDeviceMac(String wifiP2pDeviceMac) {
+        this.wifiP2pDeviceMac = wifiP2pDeviceMac;
     }
 
     public WifiP2pState getCurrentState() {

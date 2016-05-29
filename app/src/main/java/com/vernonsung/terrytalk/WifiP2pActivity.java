@@ -1,13 +1,18 @@
 package com.vernonsung.terrytalk;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -21,6 +26,7 @@ import android.widget.Toast;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -46,6 +52,13 @@ public class WifiP2pActivity extends AppCompatActivity
     private WifiP2pService wifiP2pService;
     private LinkedList<ServiceTask> serviceTaskQueue = new LinkedList<>();
 
+    // Permission request
+    private static final int PERMISSION_REQUEST_LOCAL_SERVICE = 100;
+    private static final int PERMISSION_REQUEST_CONNECT = 101;
+
+    // Connect to target
+    String targetName;
+
     // UI
     private TextView textViewName;
     private TextView textViewIp;
@@ -57,8 +70,8 @@ public class WifiP2pActivity extends AppCompatActivity
     private AdapterView.OnItemClickListener listViewDevicesOnItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            String targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
-            serviceActionConnect(targetName);
+            targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
+            checkPermissionToConnect();
         }
     };
 
@@ -82,7 +95,7 @@ public class WifiP2pActivity extends AppCompatActivity
         buttonShout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                serviceActionLocalService();
+                checkPermissionToLocalService();
             }
         });
         buttonStop.setOnClickListener(new View.OnClickListener() {
@@ -155,6 +168,102 @@ public class WifiP2pActivity extends AppCompatActivity
         Log.d(LOG_TAG, "Service disconnected unexpectedly");
     }
     // Interface ServiceConnection ---------------------------------------------------------------
+
+    // Permission check and request for Android 6+ -----------------------------------------------
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_REQUEST_LOCAL_SERVICE:
+                localServicePermissionHandler(grantResults);
+                break;
+            case PERMISSION_REQUEST_CONNECT:
+                connectPermissionHandler(grantResults);
+                break;
+        }
+    }
+
+    private void localServicePermissionHandler(int[] grantResults) {
+        // If request is cancelled, the result arrays are empty.
+        if (grantResults.length == 0) {
+            return;
+        }
+        // Check whether every permission is granted
+        for (int i : grantResults) {
+            if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                return;
+            }
+        }
+        // Check all permissions again
+        checkPermissionToLocalService();
+    }
+
+    private void connectPermissionHandler(int[] grantResults) {
+        // If request is cancelled, the result arrays are empty.
+        if (grantResults.length == 0) {
+            return;
+        }
+        // Check whether every permission requested is granted
+        for (int i : grantResults) {
+            if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                return;
+            }
+        }
+        // Check all permissions again
+        checkPermissionToConnect();
+    }
+
+    private void checkPermissionToLocalService() {
+        // List all permissions to check for grants
+        String[] permissions = new String[] {Manifest.permission.RECORD_AUDIO};
+        ArrayList<String> permissionsToRequest = new ArrayList<>();
+
+        // Check every permissions
+        for (String s : permissions) {
+            if (ContextCompat.checkSelfPermission(this, s) == PackageManager.PERMISSION_DENIED) {
+                permissionsToRequest.add(s);
+            }
+        }
+
+        // There are permission grants to request
+        if (!permissionsToRequest.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                    permissionsToRequest.toArray(new String[0]),
+                    PERMISSION_REQUEST_LOCAL_SERVICE);
+            // Async call back onRequestPermissionsResult() will be called
+            return;
+        }
+
+        // Finally all permission are granted
+        serviceActionLocalService();
+    }
+
+    private void checkPermissionToConnect() {
+        // List all permissions to check for grants
+        String[] permissions = new String[] {Manifest.permission.RECORD_AUDIO};
+        ArrayList<String> permissionsToRequest = new ArrayList<>();
+
+        // Check every permissions
+        for (String s : permissions) {
+            if (ContextCompat.checkSelfPermission(this, s) == PackageManager.PERMISSION_DENIED) {
+                permissionsToRequest.add(s);
+            }
+        }
+
+        // There are permission grants to request
+        if (!permissionsToRequest.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                    (String[]) permissionsToRequest.toArray(),
+                    PERMISSION_REQUEST_CONNECT);
+            // Async call back onRequestPermissionsResult() will be called
+            return;
+        }
+
+        // Finally all permission are granted
+        if (targetName != null && !targetName.isEmpty()) {
+            serviceActionConnect(targetName);
+        }
+    }
+    // Permission check and request for Android 6+ -----------------------------------------------
 
     private void initializeBroadcastReceiver() {
         wifiP2pActivityReceiver = new WifiP2pActivityReceiver(this);
