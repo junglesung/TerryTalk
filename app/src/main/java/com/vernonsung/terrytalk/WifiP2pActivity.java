@@ -348,8 +348,6 @@ public class WifiP2pActivity extends AppCompatActivity
             case REMOVE_GROUP_SHOUT:
             case CLEAR_REMEMBERED_GROUP_SHOUT:
             case CLIENT_REJECTED:
-            case UPDATE_CLIENT_LIST:
-            case AUDIO_STREAM_SETUP_KING:
             case DISCOVER_PEERS_SHOUT:
                 buttonShout.setText(R.string.silent);
                 buttonShout.setEnabled(true);
