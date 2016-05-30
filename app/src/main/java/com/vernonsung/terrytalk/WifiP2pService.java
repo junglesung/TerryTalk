@@ -619,7 +619,9 @@ public class WifiP2pService extends Service
     }
 
     private void clearClientList() {
-        // TODO: Clear the listView in the activity
+        // Clear the listView in the activity
+        nearbyDevices.clear();
+        notifyActivityUpdateDeviceList();
         goToNextState();
     }
 
@@ -655,6 +657,7 @@ public class WifiP2pService extends Service
 
     // When WifiP2pReceiver receives WIFI_P2P_CONNECTION_CHANGED_ACTION
     public void connectionChangeActionHandler(NetworkInfo networkInfo, WifiP2pInfo wifiP2pInfo, WifiP2pGroup groupInfo) {
+        // TODO: The first time that the third device connected, netowrkInfo.isConnected() is false
         // Check whether the connection is established or broken
         if (!networkInfo.isConnected()) {
             Log.d(LOG_TAG, "Connection is broken");
@@ -662,7 +665,7 @@ public class WifiP2pService extends Service
             // Change state
             if (serviceAnnounced) {  // Check serviceAnnounced instead of (currentState == SHOUT) because it may be in other state of part "shouted"
                 // I host the service.
-                // Note: If client A disconnects while client B is still connected, networkInfo.isConnected() is true
+                // Note: If client A disconnects while client B is still connected, networkInfo.isConnected() is true.
                 Log.d(LOG_TAG, "All clients disconnected");
                 serviceConnected = false;
                 // Clear clients on list view
