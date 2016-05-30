@@ -716,18 +716,9 @@ public class WifiP2pService extends Service
         if (currentState == WifiP2pState.SHOUT) {
             // I host the service
             if (groupInfo.isGroupOwner()) {
-                // I'm the group owner. Show clients on list view
-                // TODO: Check newly disconnected client and remove it from audioTransceiver
-                Collection<WifiP2pDevice> devices = groupInfo.getClientList();
-                nearbyDevices.clear();
-                for (WifiP2pDevice device : devices) {
-                    HashMap<String, String> a = new HashMap<>();
-                    a.put(MAP_ID_DEVICE_NAME, device.deviceName);
-                    a.put(MAP_ID_STATUS, getDeviceState(device));
-                    a.put(MAP_ID_MAC, device.deviceAddress);
-                    nearbyDevices.add(a);
-                }
-                notifyActivityUpdateDeviceList();
+                // I'm the group owner.
+                // Show clients on list view and remove disconnected clients from audioTransceiver
+                updateClientList(groupInfo);
                 // Change state
                 goToNextState();
             } else {
@@ -815,6 +806,46 @@ public class WifiP2pService extends Service
         }
         Log.e(LOG_TAG, "No useful IP");
         return null;
+    }
+
+    // Show clients on list view and remove disconnected clients from audioTransceiver
+    private void updateClientList(WifiP2pGroup groupInfo) {
+        Collection<WifiP2pDevice> devices = groupInfo.getClientList();
+        ArrayList<HashMap<String, String>> newNearbyDevices = new ArrayList<>();
+
+        // Add current connected clients to a new list
+        for (WifiP2pDevice device : devices) {
+            HashMap<String, String> a = new HashMap<>();
+            a.put(MAP_ID_DEVICE_NAME, device.deviceName);
+            a.put(MAP_ID_STATUS, getDeviceState(device));
+            a.put(MAP_ID_MAC, device.deviceAddress);
+            newNearbyDevices.add(a);
+        }
+        // Remove disconnected clients from audio transceiver.
+        // P.S. Clients were added to the audio transceiver when they registered.
+        for (HashMap<String, String> a : nearbyDevices) {
+            String macA = a.get(MAP_ID_MAC);
+            boolean toRemove = true;
+            for (HashMap<String, String> b : newNearbyDevices) {
+                if (b.get(MAP_ID_MAC).equals(macA)) {
+                    toRemove = false;
+                    break;
+                }
+            }
+            if (toRemove) {
+                audioTransceiver.removeStream(macA);
+            }
+        }
+        // Replace the list by new list
+        nearbyDevices = newNearbyDevices;
+        // Update activity
+        notifyActivityUpdateDeviceList();
+
+        // Vernon debug
+        for (HashMap<String, String> a : nearbyDevices) {
+            Log.d(LOG_TAG, a.get(MAP_ID_DEVICE_NAME));
+        }
+        audioTransceiver.printStreams();
     }
 
     // Part 3: Discover the devices running this APP----------------------------------------------

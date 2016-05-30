@@ -116,19 +116,15 @@ public class SocketServerThreads implements Runnable{
             serverSocket.setSoTimeout(CONNECTION_WAITING_TIMEOUT);
 
             // Wait for connection until receiving quit command
-            int i = 0;
             while (!isToQuit()) {
                 try {
                     socket = serverSocket.accept();
                 } catch (SocketTimeoutException e) {
-                    Log.d(LOG_TAG, "Timeout " + String.valueOf(i++));
                     continue;
                 }
 
-                // Create a new thread to communicate with the new clent
+                // Create a new thread to communicate with the new client
                 new Thread(new SocketThread(socket)).start();
-
-                i = 0;
             }
         } catch (IOException e) {
             Log.d(LOG_TAG, "Server socket problem. " + e.toString());

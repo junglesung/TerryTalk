@@ -202,6 +202,17 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
         stopPlayAudio();
     }
 
+    /**
+     * Print all audio streams to debug
+     */
+    public synchronized void printStreams() {
+        for (AudioStream stream : streams.values()) {
+            Log.d(LOG_TAG, "Current audio stream " +
+                    stream.getLocalAddress().getHostAddress() + ":" + stream.getLocalPort() + " -> " +
+                    stream.getRemoteAddress().getHostAddress() + ":" + String.valueOf(stream.getRemotePort()));
+        }
+    }
+
     // It's called when the first stream is added. PREPARED -> PLAYING
     private void startPlayAudio() {
         try {
