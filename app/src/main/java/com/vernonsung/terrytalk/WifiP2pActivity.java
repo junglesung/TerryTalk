@@ -189,7 +189,7 @@ public class WifiP2pActivity extends AppCompatActivity
         }
         // Check whether every permission is granted
         for (int i : grantResults) {
-            if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+            if (i == PackageManager.PERMISSION_DENIED) {
                 return;
             }
         }
@@ -204,7 +204,7 @@ public class WifiP2pActivity extends AppCompatActivity
         }
         // Check whether every permission requested is granted
         for (int i : grantResults) {
-            if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+            if (i == PackageManager.PERMISSION_DENIED) {
                 return;
             }
         }
@@ -252,16 +252,18 @@ public class WifiP2pActivity extends AppCompatActivity
         // There are permission grants to request
         if (!permissionsToRequest.isEmpty()) {
             ActivityCompat.requestPermissions(this,
-                    (String[]) permissionsToRequest.toArray(),
+                    permissionsToRequest.toArray(new String[0]),
                     PERMISSION_REQUEST_CONNECT);
             // Async call back onRequestPermissionsResult() will be called
             return;
         }
 
         // Finally all permission are granted
-        if (targetName != null && !targetName.isEmpty()) {
-            serviceActionConnect(targetName);
+        if (targetName == null || targetName.isEmpty()) {
+            Log.e(LOG_TAG, "No target name");
+            return;
         }
+        serviceActionConnect(targetName);
     }
     // Permission check and request for Android 6+ -----------------------------------------------
 

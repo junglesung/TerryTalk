@@ -69,7 +69,7 @@ public class SocketClientTask extends AsyncTask<Void, Void, AudioStream> {
         } catch (BindException e) {
             Log.e(LOG_TAG, "Bind to " + localSocketAddress.toString() + " failed. Maybe the IP doesn't exist or the port is in use. Retry later please.");
         } catch (IOException e) {
-            Log.e(LOG_TAG, "Server " + remoteSocketAddress.toString() + " has not response. Retry later please." + e.toString());
+            Log.e(LOG_TAG, "Server " + remoteSocketAddress.toString() + " has no response. Retry later please." + e.toString());
         } finally {
             try {
                 if (socket != null && !socket.isClosed()) {

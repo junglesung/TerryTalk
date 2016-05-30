@@ -668,6 +668,9 @@ public class WifiP2pService extends Service
                 // Clear clients on list view
                 nearbyDevices.clear();
                 notifyActivityUpdateDeviceList();
+                // Remove IP
+                wifiP2pDeviceIp = null;
+                notifyActivityUpdateIp();
                 // Change state
                 if (currentState == WifiP2pState.SHOUT) {
                     goToNextState();
@@ -752,7 +755,9 @@ public class WifiP2pService extends Service
                     // Change device status
                     try {
                         String status = device.get(MAP_ID_STATUS);
-                        status = status.replaceFirst("^\\w+\\s", getDeviceState(groupInfo.getOwner()) + " ");
+                        // Device state is usually "Unavailable" which is not correct. Manually assign instead.
+//                        status = status.replaceFirst("^\\w+\\s", getDeviceState(groupInfo.getOwner()) + " ");
+                        status = status.replaceFirst("^\\w+\\s", "Connected" + " ");
                         device.put(MAP_ID_STATUS, status);
                         notifyActivityUpdateDeviceList();
                     } catch (Exception e) {

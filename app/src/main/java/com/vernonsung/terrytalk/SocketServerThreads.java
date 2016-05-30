@@ -96,8 +96,8 @@ public class SocketServerThreads implements Runnable{
     }
 
     private static final String LOG_TAG = "testtest";
-    private static final int CONNECTION_WAITING_TIMEOUT = 1000;  // ms
-    private static final int SOCKET_READ_TIMEOUT = 1000;  // ms
+    private static final int CONNECTION_WAITING_TIMEOUT = 2000;  // ms
+    private static final int SOCKET_READ_TIMEOUT = 2000;  // ms
     private ServerSocket serverSocket;
     private boolean toQuit = false;
     private AudioTransceiver audioTransceiver;
