@@ -79,9 +79,11 @@ public class WifiP2pReceiver extends BroadcastReceiver {
         switch (status) {
             case WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED:
                 Log.d(LOG_TAG, "Nearby device discovery starts");
+                wifiP2pService.setPeerDiscoveryStopped(false);
                 break;
             case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
-                wifiP2pService.restartPeerDiscoverInAccident();
+                Log.d(LOG_TAG, "Nearby device discovery stops");
+                wifiP2pService.setPeerDiscoveryStopped(true);
                 break;
         }
     }

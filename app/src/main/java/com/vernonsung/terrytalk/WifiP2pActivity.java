@@ -26,7 +26,6 @@ import android.widget.Toast;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -346,7 +345,7 @@ public class WifiP2pActivity extends AppCompatActivity
             case ADD_LOCAL_SERVICE:
             case SHOUT:
             case REMOVE_GROUP_SHOUT:
-            case CLEAR_REMEMBERED_GROUP_SHOUT:
+            case WAIT_DISCONNECTION_SHOUT:
             case CLIENT_REJECTED:
             case DISCOVER_PEERS_SHOUT:
                 buttonShout.setText(R.string.silent);
@@ -355,11 +354,10 @@ public class WifiP2pActivity extends AppCompatActivity
                 buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
-            case REMOVE_GROUP_SILENT:
             case REMOVE_LOCAL_SERVICE:
-            case CLEAR_CLIENT_LIST:
-            case AUDIO_STREAM_DISMISS_KING:
             case REGISTRATION_DISMISS:
+            case REMOVE_GROUP_SILENT:
+            case WAIT_DISCONNECTION_SILENT:
             case SILENT:
                 buttonShout.setText(R.string.shout);
                 buttonShout.setEnabled(true);
@@ -384,7 +382,6 @@ public class WifiP2pActivity extends AppCompatActivity
             case DISCOVER_PEERS_CONNECT:
             case CONNECT:
             case CONNECTING:
-            case CLEAR_REMEMBERED_GROUP_CONNECT:
             case CANCEL_CONNECT:
             case DISCONNECTED:
             case STOP_PEER_DISCOVERY_CONNECT:
@@ -392,6 +389,7 @@ public class WifiP2pActivity extends AppCompatActivity
             case CONNECTED:
             case AUDIO_STREAM_DISMISS:
             case REMOVE_GROUP:
+            case WAIT_DISCONNECTION:
             case CONNECTION_END:
                 buttonShout.setText(R.string.shout);
                 buttonShout.setEnabled(false);

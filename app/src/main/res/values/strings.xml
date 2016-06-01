@@ -23,11 +23,11 @@
     <string name="failed">Failed</string>
     <string name="invited">Invited</string>
     <string name="unavailable">Unavailable</string>
-    <string name="terrytalk_is_still_running">TerryTalk is still running</string>
+    <string name="terry_talks_is_still_running">Terry Talks is still running</string>
     <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
-    <string name="wifi_direct_ip_not_found_please_try_again">Wi-Fi direct IP not found. Please try again</string>
-    <string name="wifi_direct_ip_not_found_please_ask_the_client_to_connect_again">Wi-Fi direct IP not found. Please ask the client to try again</string>
-    <string name="im_client_i_should_not_be_the_group_owner_please_try_again">I\'m client. I should not be the group owner. Please try again</string>
-    <string name="server_registration_port_is_not_valid_please_try_again">Server registration port is not valid. Please try again</string>
-    <string name="im_server_i_should_be_the_group_owner_please_ask_the_client_to_connect_again">I\'m server. I should be the group owner. Please ask the client to connect again</string>
+    <!--Wi-Fi direct connection changes-->
+    <string name="disconnected_search_nearby_devices_again">Disconnected. Search nearby devices again.</string>
+    <string name="all_clients_disconnected">All clients disconnected.</string>
+    <string name="unhandled_server_connection_change">Unhandled server connection change</string>
+    <string name="unhandled_client_connection_change">Unhandled client connection change</string>
 </resources>
