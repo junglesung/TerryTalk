@@ -26,8 +26,9 @@
     <string name="terry_talks_is_still_running">Terry Talks is still running</string>
     <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
     <!--Wi-Fi direct connection changes-->
-    <string name="disconnected_search_nearby_devices_again">Disconnected. Search nearby devices again.</string>
-    <string name="all_clients_disconnected">All clients disconnected.</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="all_clients_disconnected">All clients disconnected</string>
+    <string name="try_again">Try again</string>
     <string name="unhandled_server_connection_change">Unhandled server connection change</string>
     <string name="unhandled_client_connection_change">Unhandled client connection change</string>
 </resources>
