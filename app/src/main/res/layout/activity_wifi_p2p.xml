@@ -37,8 +37,8 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/shout"
-        android:id="@+id/buttonShout"
+        android:text="@string/refresh"
+        android:id="@+id/buttonRefresh"
         android:layout_below="@id/textViewIp"
         android:layout_alignParentStart="true" />
     <Button
@@ -47,13 +47,22 @@
         android:text="@string/stop"
         android:id="@+id/buttonStop"
         android:layout_below="@id/textViewIp"
-        android:layout_toEndOf="@id/buttonShout"
+        android:layout_toEndOf="@id/buttonRefresh"
         android:enabled="false" />
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:ems="10"
+        android:id="@+id/editTextPort"
+        android:layout_above="@+id/listViewDevices"
+        android:layout_toEndOf="@+id/buttonStop"
+        android:paddingStart="10dp" />
     <ListView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/listViewDevices"
-        android:layout_below="@+id/buttonShout"
+        android:layout_below="@+id/buttonRefresh"
         android:layout_alignParentStart="true" />
 
 </RelativeLayout>

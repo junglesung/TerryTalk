@@ -19,6 +19,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -33,7 +34,7 @@ public class WifiP2pActivity extends AppCompatActivity
         implements ServiceConnection {
     // Schedule task through handler to call the service's methods
     private enum ServiceTask {
-        UPDATE_IP, UPDATE_DEVICES, UPDATE_CLIENTS, UPDATE_STATE
+        UPDATE_IP, UPDATE_PORT, UPDATE_DEVICES, UPDATE_STATE
     }
 
     private static final String LOG_TAG = "testtest";
@@ -52,18 +53,19 @@ public class WifiP2pActivity extends AppCompatActivity
     private LinkedList<ServiceTask> serviceTaskQueue = new LinkedList<>();
 
     // Permission request
-    private static final int PERMISSION_REQUEST_LOCAL_SERVICE = 100;
-    private static final int PERMISSION_REQUEST_CONNECT = 101;
+    private static final int PERMISSION_REQUEST_SERVICE = 100;
 
     // Connect to target
     String targetName;
+    int targetPort;
 
     // UI
     private TextView textViewName;
     private TextView textViewIp;
     private TextView textViewPort;
-    private Button buttonShout;
+    private Button buttonRefresh;
     private Button buttonStop;
+    private EditText editTextPort;
     private ListView listViewDevices;
 
     // Function objects
@@ -71,7 +73,14 @@ public class WifiP2pActivity extends AppCompatActivity
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
-            checkPermissionToConnect();
+            try {
+                targetPort = Integer.parseInt(editTextPort.getText().toString());
+            } catch (NumberFormatException e) {
+                Log.e(LOG_TAG, "User input port is not an integer.");
+                Toast.makeText(getApplicationContext(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            serviceActionConnect();
         }
     };
 
@@ -84,8 +93,9 @@ public class WifiP2pActivity extends AppCompatActivity
         textViewName = (TextView)findViewById(R.id.textViewName);
         textViewIp = (TextView)findViewById(R.id.textViewIp);
         textViewPort = (TextView)findViewById(R.id.textViewPort);
-        buttonShout = (Button)findViewById(R.id.buttonShout);
+        buttonRefresh = (Button)findViewById(R.id.buttonRefresh);
         buttonStop = (Button)findViewById(R.id.buttonStop);
+        editTextPort = (EditText)findViewById(R.id.editTextPort);
         listViewDevices = (ListView)findViewById(R.id.listViewDevices);
         textViewName.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -93,10 +103,10 @@ public class WifiP2pActivity extends AppCompatActivity
                 startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
             }
         });
-        buttonShout.setOnClickListener(new View.OnClickListener() {
+        buttonRefresh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                checkPermissionToLocalService();
+                serviceActionRefresh();
             }
         });
         buttonStop.setOnClickListener(new View.OnClickListener() {
@@ -116,11 +126,7 @@ public class WifiP2pActivity extends AppCompatActivity
         // Customized
         initializeBroadcastReceiver();
         // Start the main service if it's not started yet
-        serviceActionStart();
-        // Update data from the service
-        updateStateFromService();
-        updateIpFromService();
-        updateNearByDevicesFromService();
+        checkPermissionToStartService();
     }
 
     @Override
@@ -174,11 +180,8 @@ public class WifiP2pActivity extends AppCompatActivity
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
-            case PERMISSION_REQUEST_LOCAL_SERVICE:
+            case PERMISSION_REQUEST_SERVICE:
                 localServicePermissionHandler(grantResults);
-                break;
-            case PERMISSION_REQUEST_CONNECT:
-                connectPermissionHandler(grantResults);
                 break;
         }
     }
@@ -195,25 +198,10 @@ public class WifiP2pActivity extends AppCompatActivity
             }
         }
         // Check all permissions again
-        checkPermissionToLocalService();
+        checkPermissionToStartService();
     }
 
-    private void connectPermissionHandler(int[] grantResults) {
-        // If request is cancelled, the result arrays are empty.
-        if (grantResults.length == 0) {
-            return;
-        }
-        // Check whether every permission requested is granted
-        for (int i : grantResults) {
-            if (i == PackageManager.PERMISSION_DENIED) {
-                return;
-            }
-        }
-        // Check all permissions again
-        checkPermissionToConnect();
-    }
-
-    private void checkPermissionToLocalService() {
+    private void checkPermissionToStartService() {
         // List all permissions to check for grants
         String[] permissions = new String[] {Manifest.permission.RECORD_AUDIO};
         ArrayList<String> permissionsToRequest = new ArrayList<>();
@@ -229,42 +217,13 @@ public class WifiP2pActivity extends AppCompatActivity
         if (!permissionsToRequest.isEmpty()) {
             ActivityCompat.requestPermissions(this,
                     permissionsToRequest.toArray(new String[0]),
-                    PERMISSION_REQUEST_LOCAL_SERVICE);
+                    PERMISSION_REQUEST_SERVICE);
             // Async call back onRequestPermissionsResult() will be called
             return;
         }
 
         // Finally all permission are granted
-        serviceActionLocalService();
-    }
-
-    private void checkPermissionToConnect() {
-        // List all permissions to check for grants
-        String[] permissions = new String[] {Manifest.permission.RECORD_AUDIO};
-        ArrayList<String> permissionsToRequest = new ArrayList<>();
-
-        // Check every permissions
-        for (String s : permissions) {
-            if (ContextCompat.checkSelfPermission(this, s) == PackageManager.PERMISSION_DENIED) {
-                permissionsToRequest.add(s);
-            }
-        }
-
-        // There are permission grants to request
-        if (!permissionsToRequest.isEmpty()) {
-            ActivityCompat.requestPermissions(this,
-                    permissionsToRequest.toArray(new String[0]),
-                    PERMISSION_REQUEST_CONNECT);
-            // Async call back onRequestPermissionsResult() will be called
-            return;
-        }
-
-        // Finally all permission are granted
-        if (targetName == null || targetName.isEmpty()) {
-            Log.e(LOG_TAG, "No target name");
-            return;
-        }
-        serviceActionConnect(targetName);
+        serviceActionStart();
     }
     // Permission check and request for Android 6+ -----------------------------------------------
 
@@ -290,17 +249,27 @@ public class WifiP2pActivity extends AppCompatActivity
         Intent intent = new Intent(this, WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_START);
         startService(intent);
+        // Update data from the service
+        updateStateFromService();
+        updateIpFromService();
+        updatePortFromService();
+        updateNearByDevicesFromService();
     }
 
-    private void serviceActionConnect(String targetName) {
+    private void serviceActionConnect() {
+        if (targetName == null || targetName.isEmpty()) {
+            Log.e(LOG_TAG, "No target name");
+            return;
+        }
         Intent intent = new Intent(this, WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_CONNECT);
         // Put target name into the intent
         intent.putExtra(WifiP2pService.INTENT_EXTRA_TARGET, targetName);
+        intent.putExtra(WifiP2pService.INTENT_EXTRA_PORT, targetPort);
         startService(intent);
     }
 
-    private void serviceActionLocalService() {
+    private void serviceActionRefresh() {
         Intent intent = new Intent(this, WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_REFRESH);
         startService(intent);
@@ -321,88 +290,103 @@ public class WifiP2pActivity extends AppCompatActivity
     }
 
     public void setPort(int port) {
-        textViewPort.setText(":" + String.valueOf(port));
+        if (port == 0) {
+            textViewPort.setText("");
+        } else {
+            String s = ":" + String.valueOf(port);
+            textViewPort.setText(s);
+        }
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
         switch (state) {
-            case NON_INITIALIZED:
             case INITIALIZING:
-                buttonShout.setText(R.string.shout);
-                buttonShout.setEnabled(false);
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(false);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(true);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case SEARCHING:
+            case IDLE:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(true);
+                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+                break;
+            case REJECTING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+                break;
+            case SERVER:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(true);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case SERVER_DISCONNECTING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
-            case INITIALIZED:
-            case DISCOVER_PEERS:
-            case ADD_SERVICE_REQUEST:
-            case DISCOVER_SERVICES:
-            case SEARCHING:
-            case REMOVE_SERVICE_REQUEST:
-            case STOP_PEER_DISCOVERY:
-            case SEARCH_STOPPED:
-                buttonShout.setText(R.string.shout);
-                buttonShout.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
-                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
-                break;
-            case REGISTRATION_SETUP:
-            case ADD_LOCAL_SERVICE:
-            case SHOUT:
-            case REMOVE_GROUP_SHOUT:
-            case WAIT_DISCONNECTION_SHOUT:
-            case CLIENT_REJECTED:
-            case DISCOVER_PEERS_SHOUT:
-                buttonShout.setText(R.string.silent);
-                buttonShout.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
-                listViewDevices.setOnItemClickListener(null);
-                break;
-            case REMOVE_LOCAL_SERVICE:
-            case REGISTRATION_DISMISS:
-            case REMOVE_GROUP_SILENT:
-            case WAIT_DISCONNECTION_SILENT:
-            case SILENT:
-                buttonShout.setText(R.string.shout);
-                buttonShout.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
-                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
-                break;
-            case STOP_PEER_DISCOVERY_SHOUT:
-                buttonShout.setText(R.string.shout);
-                buttonShout.setEnabled(false);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
-                listViewDevices.setOnItemClickListener(null);
-                break;
-            case DISCOVER_PEERS_DATA:
-            case ADD_SERVICE_REQUEST_DATA:
-            case DISCOVER_SERVICES_DATA:
-            case DATA_REQUESTED:
-            case REMOVE_SERVICE_REQUEST_DATA:
-            case STOP_PEER_DISCOVERY_DATA:
-            case DATA_STOPPED:
-            case DISCOVER_PEERS_CONNECT:
-            case CONNECT:
             case CONNECTING:
-            case CANCEL_CONNECT:
-            case DISCONNECTED:
-            case STOP_PEER_DISCOVERY_CONNECT:
-            case AUDIO_STREAM_SETUP:
-            case CONNECTED:
-            case AUDIO_STREAM_DISMISS:
-            case REMOVE_GROUP:
-            case WAIT_DISCONNECTION:
-            case CONNECTION_END:
-                buttonShout.setText(R.string.shout);
-                buttonShout.setEnabled(false);
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
                 buttonStop.setText(R.string.stop);
                 buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
+                break;
+            case CANCELING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case RECONNECTING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case REGISTERING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case CONNECTED:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(true);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case DISCONNECTING:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(true);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(null);
+                break;
+            case STOPPING:
+            case STOPPED:
+                buttonRefresh.setText(R.string.refresh);
+                buttonRefresh.setEnabled(false);
+                buttonStop.setText(R.string.stop);
+                buttonStop.setEnabled(false);
+                listViewDevices.setOnItemClickListener(null);
+                // Leave APP
+                finish();
                 break;
         }
     }
@@ -415,18 +399,27 @@ public class WifiP2pActivity extends AppCompatActivity
         }
         nearbyDevices.clear();
         nearbyDevices.addAll(wifiP2pService.getNearbyDevices());
-        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " devices now");
-        listViewDevicesAdapter.notifyDataSetChanged();
-    }
-
-    private void updateClientsFromServiceTaskHandler() {
-        if (wifiP2pService == null) {
-            Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
-            return;
+        ArrayList<HashMap<String, String>> clients = wifiP2pService.getClients();
+        // Merge clients status to nearbyDevices
+        for (HashMap<String, String> client : clients) {
+            String name = client.get(WifiP2pService.MAP_ID_DEVICE_NAME);
+            boolean found = false;
+            for (HashMap<String, String> device : nearbyDevices) {
+                if (name.equals(device.get(WifiP2pService.MAP_ID_DEVICE_NAME))) {
+                    String status = device.get(WifiP2pService.MAP_ID_STATUS);
+                    if (status.compareToIgnoreCase("connected") != 0) {
+                        Log.d(LOG_TAG, "Replace status " + status + " by CoNNeCTeD");
+                        device.put(WifiP2pService.MAP_ID_STATUS, "CoNNeCTeD");
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            // Add client if it's not in the nearbyDevices yet
+            if (!found) {
+                nearbyDevices.add(0, client);
+            }
         }
-        nearbyDevices.clear();
-        nearbyDevices.addAll(wifiP2pService.getClients());
         Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " devices now");
         listViewDevicesAdapter.notifyDataSetChanged();
     }
@@ -447,6 +440,16 @@ public class WifiP2pActivity extends AppCompatActivity
         setIp(msg);
     }
 
+    private void updatePortFromServiceTaskHandler() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int port = wifiP2pService.getLocalRegistrationPort();
+        setPort(port);
+    }
+
     private void updateStateFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
@@ -463,11 +466,11 @@ public class WifiP2pActivity extends AppCompatActivity
                 case UPDATE_IP:
                     updateIpFromServiceTaskHandler();
                     break;
+                case UPDATE_PORT:
+                    updatePortFromServiceTaskHandler();
+                    break;
                 case UPDATE_DEVICES:
                     updateNearByDevicesFromServiceTaskHandler();
-                    break;
-                case UPDATE_CLIENTS:
-                    updateClientsFromServiceTaskHandler();
                     break;
                 case UPDATE_STATE:
                     updateStateFromServiceTaskHandler();
@@ -484,15 +487,15 @@ public class WifiP2pActivity extends AppCompatActivity
         }
     }
 
-    public void updateClientsFromService() {
-        serviceTaskQueue.push(ServiceTask.UPDATE_CLIENTS);
+    private void updateIpFromService() {
+        serviceTaskQueue.push(ServiceTask.UPDATE_IP);
         if (wifiP2pService == null) {
             bindWifiP2pService();
         }
     }
 
-    private void updateIpFromService() {
-        serviceTaskQueue.push(ServiceTask.UPDATE_IP);
+    private void updatePortFromService() {
+        serviceTaskQueue.push(ServiceTask.UPDATE_PORT);
         if (wifiP2pService == null) {
             bindWifiP2pService();
         }

@@ -25,8 +25,6 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
             wifiP2pThisDeviceChangedActionHandler(intent);
         } else if (WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION.equals(action)) {
             updateNearbyDevicesActionHandler(intent);
-        } else if (WifiP2pService.UPDATE_CLIENTS_ACTION.equals(action)) {
-            updateClientActionHandler(intent);
         } else if (WifiP2pService.UPDATE_STATE_ACTION.equals(action)) {
             updateStateActionHandler(intent);
         } else if (WifiP2pService.UPDATE_IP_ACTION.equals(action)) {
@@ -51,13 +49,6 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
     private void updateNearbyDevicesActionHandler(Intent intent) {
         Log.d(LOG_TAG, "I'm going to update nearby devices from the service");
         wifiP2pActivity.updateNearByDevicesFromService();
-    }
-
-    // After receiving an intent with action WifiP2pService.UPDATE_CLIENTS_ACTION
-    // Show the update client list
-    private void updateClientsActionHandler(Intent intent) {
-        Log.d(LOG_TAG, "I'm going to update clients from the service");
-        wifiP2pActivity.updateClientsFromService();
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_STATE_ACTION
@@ -88,9 +79,6 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
     // Show port
     private void updatePortActionHandler(Intent intent) {
         int port = intent.getIntExtra(WifiP2pService.INTENT_EXTRA_REGISTRATION_PORT, 0);
-        if (port == 0) {
-            ip = "";
-        }
         wifiP2pActivity.setPort(port);
     }
 
