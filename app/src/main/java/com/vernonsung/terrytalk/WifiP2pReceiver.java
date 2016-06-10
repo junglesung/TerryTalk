@@ -42,6 +42,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // discover the devices running this APP
     private void wifiP2pPeersChangedActionHandler(Intent intent) {
         Log.d(LOG_TAG, "Nearby devices changed");
+        wifiP2pService.discoverNearbyDevicesStep2();
         // TODO: Connect to last group in the future
     }
 
@@ -68,8 +69,8 @@ public class WifiP2pReceiver extends BroadcastReceiver {
     // Show the name in the APP
     private void wifiP2pThisDeviceChangedActionHandler(Intent intent) {
         WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
-        wifiP2pService.setWifiP2pDeviceName(device.deviceName);
-        wifiP2pService.setWifiP2pDeviceMac(device.deviceAddress);
+        wifiP2pService.setWifiP2pLocalDeviceName(device.deviceName);
+        wifiP2pService.setWifiP2pLocalDeviceMac(device.deviceAddress);
     }
 
     // Notify if nearby device discovery starts or stops

@@ -2,6 +2,7 @@
     <string name="app_name">TerryTalk</string>
     <string name="name">Name</string>
     <string name="ip">IP</string>
+    <string name="port">Port</string>
     <string name="shout">Shout</string>
     <string name="silent">Silent</string>
     <string name="search">Search</string>
@@ -31,4 +32,8 @@
     <string name="try_again">Try again</string>
     <string name="unhandled_server_connection_change">Unhandled server connection change</string>
     <string name="unhandled_client_connection_change">Unhandled client connection change</string>
+    <!--FSM V2.1-->
+    <string name="please_refresh_again">Please refresh again</string>
+    <string name="please_reboot">Please reboot</string>
+    <string name="please_the_client_connect_again">Please the client connect again</string>
 </resources>

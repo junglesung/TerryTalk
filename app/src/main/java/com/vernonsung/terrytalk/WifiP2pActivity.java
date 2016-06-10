@@ -33,7 +33,7 @@ public class WifiP2pActivity extends AppCompatActivity
         implements ServiceConnection {
     // Schedule task through handler to call the service's methods
     private enum ServiceTask {
-        UPDATE_IP, UPDATE_DEVICES, UPDATE_STATE
+        UPDATE_IP, UPDATE_DEVICES, UPDATE_CLIENTS, UPDATE_STATE
     }
 
     private static final String LOG_TAG = "testtest";
@@ -61,6 +61,7 @@ public class WifiP2pActivity extends AppCompatActivity
     // UI
     private TextView textViewName;
     private TextView textViewIp;
+    private TextView textViewPort;
     private Button buttonShout;
     private Button buttonStop;
     private ListView listViewDevices;
@@ -82,6 +83,7 @@ public class WifiP2pActivity extends AppCompatActivity
         // UI
         textViewName = (TextView)findViewById(R.id.textViewName);
         textViewIp = (TextView)findViewById(R.id.textViewIp);
+        textViewPort = (TextView)findViewById(R.id.textViewPort);
         buttonShout = (Button)findViewById(R.id.buttonShout);
         buttonStop = (Button)findViewById(R.id.buttonStop);
         listViewDevices = (ListView)findViewById(R.id.listViewDevices);
@@ -281,11 +283,12 @@ public class WifiP2pActivity extends AppCompatActivity
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION);
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_STATE_ACTION);
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_IP_ACTION);
+        wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_PORT_ACTION);
     }
 
     private void serviceActionStart() {
         Intent intent = new Intent(this, WifiP2pService.class);
-        intent.setAction(WifiP2pService.ACTION_PLAY);
+        intent.setAction(WifiP2pService.ACTION_START);
         startService(intent);
     }
 
@@ -299,7 +302,7 @@ public class WifiP2pActivity extends AppCompatActivity
 
     private void serviceActionLocalService() {
         Intent intent = new Intent(this, WifiP2pService.class);
-        intent.setAction(WifiP2pService.ACTION_LOCAL_SERVICE);
+        intent.setAction(WifiP2pService.ACTION_REFRESH);
         startService(intent);
     }
 
@@ -315,6 +318,10 @@ public class WifiP2pActivity extends AppCompatActivity
 
     public void setIp(String ip) {
         textViewIp.setText(ip);
+    }
+
+    public void setPort(int port) {
+        textViewPort.setText(":" + String.valueOf(port));
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
@@ -412,6 +419,18 @@ public class WifiP2pActivity extends AppCompatActivity
         listViewDevicesAdapter.notifyDataSetChanged();
     }
 
+    private void updateClientsFromServiceTaskHandler() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        nearbyDevices.clear();
+        nearbyDevices.addAll(wifiP2pService.getClients());
+        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " devices now");
+        listViewDevicesAdapter.notifyDataSetChanged();
+    }
+
     private void updateIpFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
@@ -419,7 +438,7 @@ public class WifiP2pActivity extends AppCompatActivity
             return;
         }
         String msg;
-        InetAddress ip = wifiP2pService.getWifiP2pDeviceIp();
+        InetAddress ip = wifiP2pService.getWifiP2pLocalDeviceIp();
         if (ip == null) {
             msg = "";
         } else {
@@ -447,6 +466,9 @@ public class WifiP2pActivity extends AppCompatActivity
                 case UPDATE_DEVICES:
                     updateNearByDevicesFromServiceTaskHandler();
                     break;
+                case UPDATE_CLIENTS:
+                    updateClientsFromServiceTaskHandler();
+                    break;
                 case UPDATE_STATE:
                     updateStateFromServiceTaskHandler();
                     break;
@@ -457,6 +479,13 @@ public class WifiP2pActivity extends AppCompatActivity
 
     public void updateNearByDevicesFromService() {
         serviceTaskQueue.push(ServiceTask.UPDATE_DEVICES);
+        if (wifiP2pService == null) {
+            bindWifiP2pService();
+        }
+    }
+
+    public void updateClientsFromService() {
+        serviceTaskQueue.push(ServiceTask.UPDATE_CLIENTS);
         if (wifiP2pService == null) {
             bindWifiP2pService();
         }

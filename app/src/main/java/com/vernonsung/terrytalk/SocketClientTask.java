@@ -85,7 +85,7 @@ public class SocketClientTask extends AsyncTask<Void, Void, AudioStream> {
 
     @Override
     protected void onPostExecute(AudioStream audioStream) {
-        wifiP2pService.audioStreamSetupPart2(audioStream);
+        wifiP2pService.audioStreamSetup(audioStream);
     }
 
     // Constructor--------------------------------------------------------------------------------
