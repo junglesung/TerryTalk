@@ -61,6 +61,7 @@ public class WifiP2pActivity extends AppCompatActivity
 
     // UI
     private TextView textViewName;
+    private TextView textViewState;
     private TextView textViewIp;
     private TextView textViewPort;
     private Button buttonRefresh;
@@ -91,6 +92,7 @@ public class WifiP2pActivity extends AppCompatActivity
 
         // UI
         textViewName = (TextView)findViewById(R.id.textViewName);
+        textViewState = (TextView)findViewById(R.id.textViewState);
         textViewIp = (TextView)findViewById(R.id.textViewIp);
         textViewPort = (TextView)findViewById(R.id.textViewPort);
         buttonRefresh = (Button)findViewById(R.id.buttonRefresh);
@@ -389,6 +391,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 finish();
                 break;
         }
+        textViewState.setText(state.toString());
     }
 
     private void updateNearByDevicesFromServiceTaskHandler() {
@@ -407,9 +410,9 @@ public class WifiP2pActivity extends AppCompatActivity
             for (HashMap<String, String> device : nearbyDevices) {
                 if (name.equals(device.get(WifiP2pService.MAP_ID_DEVICE_NAME))) {
                     String status = device.get(WifiP2pService.MAP_ID_STATUS);
-                    if (status.compareToIgnoreCase("connected") != 0) {
-                        Log.d(LOG_TAG, "Replace status " + status + " by CoNNeCTeD");
-                        device.put(WifiP2pService.MAP_ID_STATUS, "CoNNeCTeD");
+                    if (status.compareToIgnoreCase(getString(R.string.connected)) != 0) {
+                        Log.d(LOG_TAG, "Replace status " + status + " by Connected");
+                        device.put(WifiP2pService.MAP_ID_STATUS, getString(R.string.connected));
                     }
                     found = true;
                     break;

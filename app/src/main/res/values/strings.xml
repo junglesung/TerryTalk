@@ -1,23 +1,16 @@
 <resources>
     <string name="app_name">TerryTalk</string>
     <string name="name">Name</string>
+    <string name="state">State</string>
     <string name="ip">IP</string>
     <string name="port">Port</string>
     <string name="refresh">Refresh</string>
-    <string name="search">Search</string>
-    <string name="data">Data</string>
     <string name="stop">Stop</string>
     <string name="wifi_p2p_unsupported">WiFi P2P is not supported</string>
     <string name="wifi_p2p_busy">WiFi P2P is busy</string>
     <string name="wifi_p2p_error">WiFi P2P has error</string>
     <string name="wifi_p2p_no_service_request">WiFi P2P has no service request</string>
     <string name="this_is_a_bug">A bug</string>
-    <string name="service_created">Service created</string>
-    <string name="service_removed">Service removed</string>
-    <string name="discovering_services">Discovering services</string>
-    <string name="requesting_service_data">Requesting service data</string>
-    <string name="stop_discovering_services">Stop discovering services</string>
-    <string name="stop_requesting_data">Stop requesting data</string>
     <string name="available">Available</string>
     <string name="connected">Connected</string>
     <string name="failed">Failed</string>
@@ -25,13 +18,8 @@
     <string name="unavailable">Unavailable</string>
     <string name="terry_talks_is_still_running">Terry Talks is still running</string>
     <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
-    <!--Wi-Fi direct connection changes-->
-    <string name="disconnected">Disconnected</string>
-    <string name="all_clients_disconnected">All clients disconnected</string>
-    <string name="try_again">Try again</string>
-    <string name="unhandled_server_connection_change">Unhandled server connection change</string>
-    <string name="unhandled_client_connection_change">Unhandled client connection change</string>
     <!--FSM V2.1-->
+    <string name="try_again">Try again</string>
     <string name="please_refresh_again">Please refresh again</string>
     <string name="please_reboot">Please reboot</string>
     <string name="please_the_client_connect_again">Please the client connect again</string>

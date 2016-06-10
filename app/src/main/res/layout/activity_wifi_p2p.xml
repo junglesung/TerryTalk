@@ -21,6 +21,15 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/state"
+        android:id="@+id/textViewState"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@+id/textViewName"
+        android:paddingStart="10dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="@string/ip"
         android:id="@+id/textViewIp"
         android:layout_below="@id/textViewName"

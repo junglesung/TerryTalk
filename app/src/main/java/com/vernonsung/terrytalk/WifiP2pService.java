@@ -196,7 +196,7 @@ public class WifiP2pService extends Service
                 // Do nothing. WIFI_P2P_CONNECTION_CHANGED_ACTION should be received soon.
                 break;
             case SERVER:
-                // From beConnected()
+                // From beConnectedFirst()
                 // Do nothing. Wait for other clients to connect.
                 break;
             case SERVER_DISCONNECTING:
@@ -218,6 +218,7 @@ public class WifiP2pService extends Service
                 Log.e(LOG_TAG, "Never here. OnSuccess() REGISTERING");
                 break;
             case CONNECTED:
+                // From no-where
                 break;
             case DISCONNECTING:
                 // From disconnectTarget()
@@ -228,6 +229,7 @@ public class WifiP2pService extends Service
                 stopServicePart2();
                 break;
             case STOPPED:
+                // From no-where
                 break;
             default:
                 Log.e(LOG_TAG, "onSuccess() doesn't handle state " + currentState.toString());
@@ -271,7 +273,7 @@ public class WifiP2pService extends Service
                 discoverNearbyDevices();
                 break;
             case SERVER:
-                // From beConnected()
+                // From beConnectedFirst()
                 Toast.makeText(WifiP2pService.this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
                 break;
             case SERVER_DISCONNECTING:
@@ -295,6 +297,7 @@ public class WifiP2pService extends Service
                 Log.e(LOG_TAG, "Never here. OnBusy() REGISTERING");
                 break;
             case CONNECTED:
+                // From no-where
                 break;
             case DISCONNECTING:
                 // From disconnectTarget()
@@ -306,6 +309,7 @@ public class WifiP2pService extends Service
                 Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
                 break;
             case STOPPED:
+                // From no-where
                 break;
         }
     }
@@ -327,7 +331,7 @@ public class WifiP2pService extends Service
                 discoverNearbyDevices();
                 break;
             case SERVER:
-                // From beConnected()
+                // From beConnectedFirst()
                 // Do nothing. It's already discovering.
                 break;
             case SERVER_DISCONNECTING:
@@ -352,6 +356,7 @@ public class WifiP2pService extends Service
                 Log.e(LOG_TAG, "Never here. OnError() REGISTERING");
                 break;
             case CONNECTED:
+                // From no-where
                 break;
             case DISCONNECTING:
                 // From disconnectTarget(). Already disconnected
@@ -363,6 +368,7 @@ public class WifiP2pService extends Service
                 stopServicePart2();
                 break;
             case STOPPED:
+                // From no-where
                 break;
         }
     }
@@ -461,14 +467,18 @@ public class WifiP2pService extends Service
             case REJECTING:
             case SERVER:
             case SERVER_DISCONNECTING:
+                discoverNearbyDevices();
+                break;
             case CONNECTING:
             case CANCELING:
             case RECONNECTING:
+                // wifiP2pManager.discoverPeers() conflicts with wifiP2pManager.connect()
+                break;
             case REGISTERING:
             case CONNECTED:
-            case DISCONNECTING:
                 discoverNearbyDevices();
                 break;
+            case DISCONNECTING:
             case STOPPING:
             case STOPPED:
                 break;
@@ -660,10 +670,10 @@ public class WifiP2pService extends Service
 
     // Part 3: Discover nearby devices ------------------------------------------------------------
     private void discoverNearbyDevices() {
-        if (peerDiscoveryStopped) {
-            wifiP2pManager.discoverPeers(wifiP2pChannel, this);
-            // When some nearby devices are found, it'll receive WIFI_P2P_STATE_CHANGED_ACTION
-        }
+        // According to my experiment, there is no need to start peer discovery until last peer discovery stops.
+        // In other words, it won't occur error to start peer discovery even last peer discovery is on-going.
+        wifiP2pManager.discoverPeers(wifiP2pChannel, this);
+        // When some nearby devices are found, it'll receive WIFI_P2P_STATE_CHANGED_ACTION
     }
 
     public void discoverNearbyDevicesStep2() {
@@ -672,13 +682,12 @@ public class WifiP2pService extends Service
     }
 
     // Part 4: Become a server -------------------------------------------------------------------
-    // Be connected by a client
-    private void beConnected(WifiP2pGroup groupInfo) {
+    // Be connected by the first client
+    private void beConnectedFirst(WifiP2pGroup groupInfo) {
         updateClientList(groupInfo);
         if (!isConnected) {
-            // Two cases
-            //     1. Client found it should not be the group owner. So it disconnected.
-            //     2. The last client left
+            // Client found it should not be the group owner. So it disconnected.
+            clearRememberedDevicesStep1();
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
         } else {
@@ -690,6 +699,7 @@ public class WifiP2pService extends Service
                 rejectClient();
             } else {
                 // I'm the group owner
+                clearRememberedDevicesStep1();
                 changeState(WifiP2pState.SERVER);
                 discoverNearbyDevices();
             }
@@ -707,6 +717,18 @@ public class WifiP2pService extends Service
         }
     }
 
+    // Be connected by more clients
+    private void beConnectedMore(WifiP2pGroup groupInfo) {
+        updateClientList(groupInfo);
+        if (!isConnected) {
+            // The last client left
+            changeState(WifiP2pState.IDLE);
+            discoverNearbyDevices();
+        } else {
+            discoverNearbyDevices();
+        }
+    }
+
     // Server disconnects so that all client will disconnect
     private void dismissServer() {
         if (isConnected) {
@@ -716,6 +738,16 @@ public class WifiP2pService extends Service
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
         }
+    }
+
+    private void serverDisconnected(WifiP2pGroup groupInfo) {
+        updateClientList(groupInfo);
+        if (!isConnected) {
+            // The last client left
+            changeState(WifiP2pState.IDLE);
+            discoverNearbyDevices();
+        }
+
     }
 
     // Part 5: Handle Wi-Fi direct connection change ----------------------------------------------
@@ -739,15 +771,20 @@ public class WifiP2pService extends Service
                 break;
             case SEARCHING:
             case IDLE:
+                beConnectedFirst(groupInfo);
+                break;
             case REJECTING:
+                serverDisconnected(groupInfo);
+                break;
             case SERVER:
+                beConnectedMore(groupInfo);
+                break;
             case SERVER_DISCONNECTING:
-                beConnected(groupInfo);
+                serverDisconnected(groupInfo);
                 break;
             case CONNECTING:
-                connectTargetStep2(wifiP2pInfo);
-                break;
             case CANCELING:
+                connectTargetStep2(wifiP2pInfo);
                 break;
             case RECONNECTING:
                 break;
@@ -1003,6 +1040,9 @@ public class WifiP2pService extends Service
         if (!isConnected) {
             // Stop playing the audio stream
             audioTransceiver.removeStream(wifiP2pTargetDeviceMac);
+            // Clear remembered group
+            clearRememberedDevicesStep1();
+            // Change state
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
         }
