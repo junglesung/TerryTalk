@@ -19,7 +19,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name="com.vernonsung.terrytalk.WifiP2pActivity">
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -28,9 +28,9 @@
         </activity>
 
         <service
-            android:name="com.vernonsung.terrytalk.WifiP2pService"
+            android:name=".WifiP2pService"
             android:enabled="true"
-            android:exported="false"></service>
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -1,6 +1,7 @@
 package com.vernonsung.terrytalk;
 
 import android.Manifest;
+import android.app.Fragment;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -11,12 +12,14 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
@@ -30,7 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
-public class WifiP2pActivity extends AppCompatActivity
+public class WifiP2pFragment extends Fragment
         implements ServiceConnection {
     // Schedule task through handler to call the service's methods
     private enum ServiceTask {
@@ -44,7 +47,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private SimpleAdapter listViewDevicesAdapter;
 
     // Broadcast receiver
-    private WifiP2pActivityReceiver wifiP2pActivityReceiver;
+    private WifiP2pFragmentReceiver wifiP2PFragmentReceiver;
     private IntentFilter wifiP2pIntentFilter;
     private IntentFilter wifiP2pServiceIntentFilter;
 
@@ -78,27 +81,26 @@ public class WifiP2pActivity extends AppCompatActivity
                 targetPort = Integer.parseInt(editTextPort.getText().toString());
             } catch (NumberFormatException e) {
                 Log.e(LOG_TAG, "User input port is not an integer.");
-                Toast.makeText(getApplicationContext(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
+                Toast.makeText(getActivity(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
                 return;
             }
             serviceActionConnect();
         }
     };
 
+    @Nullable
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_wifi_p2p);
-
+    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         // UI
-        textViewName = (TextView)findViewById(R.id.textViewName);
-        textViewState = (TextView)findViewById(R.id.textViewState);
-        textViewIp = (TextView)findViewById(R.id.textViewIp);
-        textViewPort = (TextView)findViewById(R.id.textViewPort);
-        buttonRefresh = (Button)findViewById(R.id.buttonRefresh);
-        buttonStop = (Button)findViewById(R.id.buttonStop);
-        editTextPort = (EditText)findViewById(R.id.editTextPort);
-        listViewDevices = (ListView)findViewById(R.id.listViewDevices);
+        View view =  inflater.inflate(R.layout.fragment_wifi_p2p, container, false);  // Always false
+        textViewName = (TextView)view.findViewById(R.id.textViewName);
+        textViewState = (TextView)view.findViewById(R.id.textViewState);
+        textViewIp = (TextView)view.findViewById(R.id.textViewIp);
+        textViewPort = (TextView)view.findViewById(R.id.textViewPort);
+        buttonRefresh = (Button)view.findViewById(R.id.buttonRefresh);
+        buttonStop = (Button)view.findViewById(R.id.buttonStop);
+        editTextPort = (EditText)view.findViewById(R.id.editTextPort);
+        listViewDevices = (ListView)view.findViewById(R.id.listViewDevices);
         textViewName.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -117,7 +119,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 serviceActionStop();
             }
         });
-        listViewDevicesAdapter = new SimpleAdapter(this,
+        listViewDevicesAdapter = new SimpleAdapter(getActivity(),
                                                    nearbyDevices,
                                                    android.R.layout.simple_list_item_2,
                                                    new String[] {WifiP2pService.MAP_ID_DEVICE_NAME, WifiP2pService.MAP_ID_STATUS},
@@ -125,39 +127,44 @@ public class WifiP2pActivity extends AppCompatActivity
         listViewDevices.setAdapter(listViewDevicesAdapter);
         listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
 
-        // Customized
+        return view;
+    }
+
+    @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
         initializeBroadcastReceiver();
         // Start the main service if it's not started yet
         checkPermissionToStartService();
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
     }
 
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         // Receive intents related to Wi-Fi P2p
-        registerReceiver(wifiP2pActivityReceiver, wifiP2pIntentFilter);
+        getActivity().registerReceiver(wifiP2PFragmentReceiver, wifiP2pIntentFilter);
         // Receive intents from the service
-        LocalBroadcastManager.getInstance(this).registerReceiver(wifiP2pActivityReceiver, wifiP2pServiceIntentFilter);
+        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(wifiP2PFragmentReceiver, wifiP2pServiceIntentFilter);
         Log.d(LOG_TAG, "Broadcast receiver registered");
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         // Stop receiving intents related to Wi-Fi P2p
-        unregisterReceiver(wifiP2pActivityReceiver);
+        getActivity().unregisterReceiver(wifiP2PFragmentReceiver);
         // Stop receiving intents from the service
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(wifiP2pActivityReceiver);
+        LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(wifiP2PFragmentReceiver);
         Log.d(LOG_TAG, "Broadcast receiver unregistered");
         super.onPause();
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
     }
 
@@ -210,14 +217,14 @@ public class WifiP2pActivity extends AppCompatActivity
 
         // Check every permissions
         for (String s : permissions) {
-            if (ContextCompat.checkSelfPermission(this, s) == PackageManager.PERMISSION_DENIED) {
+            if (ContextCompat.checkSelfPermission(getActivity(), s) == PackageManager.PERMISSION_DENIED) {
                 permissionsToRequest.add(s);
             }
         }
 
         // There are permission grants to request
         if (!permissionsToRequest.isEmpty()) {
-            ActivityCompat.requestPermissions(this,
+            ActivityCompat.requestPermissions(getActivity(),
                     permissionsToRequest.toArray(new String[0]),
                     PERMISSION_REQUEST_SERVICE);
             // Async call back onRequestPermissionsResult() will be called
@@ -230,7 +237,7 @@ public class WifiP2pActivity extends AppCompatActivity
     // Permission check and request for Android 6+ -----------------------------------------------
 
     private void initializeBroadcastReceiver() {
-        wifiP2pActivityReceiver = new WifiP2pActivityReceiver(this);
+        wifiP2PFragmentReceiver = new WifiP2pFragmentReceiver(this);
         // Filter the intent received by a broadcast receiver in order to sense Wi-Fi P2P status
         wifiP2pIntentFilter = new IntentFilter();
         wifiP2pIntentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
@@ -248,9 +255,9 @@ public class WifiP2pActivity extends AppCompatActivity
     }
 
     private void serviceActionStart() {
-        Intent intent = new Intent(this, WifiP2pService.class);
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_START);
-        startService(intent);
+        getActivity().startService(intent);
         // Update data from the service
         updateStateFromService();
         updateIpFromService();
@@ -263,24 +270,24 @@ public class WifiP2pActivity extends AppCompatActivity
             Log.e(LOG_TAG, "No target name");
             return;
         }
-        Intent intent = new Intent(this, WifiP2pService.class);
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_CONNECT);
         // Put target name into the intent
         intent.putExtra(WifiP2pService.INTENT_EXTRA_TARGET, targetName);
         intent.putExtra(WifiP2pService.INTENT_EXTRA_PORT, targetPort);
-        startService(intent);
+        getActivity().startService(intent);
     }
 
     private void serviceActionRefresh() {
-        Intent intent = new Intent(this, WifiP2pService.class);
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_REFRESH);
-        startService(intent);
+        getActivity().startService(intent);
     }
 
     private void serviceActionStop() {
-        Intent intent = new Intent(this, WifiP2pService.class);
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_STOP);
-        startService(intent);
+        getActivity().startService(intent);
     }
 
     public void showDeviceName(String name) {
@@ -388,7 +395,7 @@ public class WifiP2pActivity extends AppCompatActivity
                 buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 // Leave APP
-                finish();
+                getActivity().finish();
                 break;
         }
         textViewState.setText(state.toString());
@@ -397,7 +404,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private void updateNearByDevicesFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
             return;
         }
         nearbyDevices.clear();
@@ -430,7 +437,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private void updateIpFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
             return;
         }
         String msg;
@@ -446,7 +453,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private void updatePortFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
             return;
         }
         int port = wifiP2pService.getLocalRegistrationPort();
@@ -456,7 +463,7 @@ public class WifiP2pActivity extends AppCompatActivity
     private void updateStateFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
-            Toast.makeText(this, "Service is not running", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
             return;
         }
         setState(wifiP2pService.getCurrentState());
@@ -513,11 +520,11 @@ public class WifiP2pActivity extends AppCompatActivity
 
     private void bindWifiP2pService() {
         Log.d(LOG_TAG, "I'm going to bind the service");
-        bindService(new Intent(this, WifiP2pService.class), this, 0);
+        getActivity().bindService(new Intent(getActivity(), WifiP2pService.class), this, 0);
     }
 
     private void unbindWifiP2pService() {
-        unbindService(this);
+        getActivity().unbindService(this);
         wifiP2pService = null;
         Log.d(LOG_TAG, "Service unbound");
     }

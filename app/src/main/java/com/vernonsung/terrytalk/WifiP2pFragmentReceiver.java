@@ -7,12 +7,12 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
 
-public class WifiP2pActivityReceiver extends BroadcastReceiver {
+public class WifiP2pFragmentReceiver extends BroadcastReceiver {
     private static final String LOG_TAG = "testtest";
-    private WifiP2pActivity wifiP2pActivity;  // APP activity to deal Wi-Fi P2P
+    private WifiP2pFragment wifiP2PFragment;  // APP activity to deal Wi-Fi P2P
 
-    public WifiP2pActivityReceiver(WifiP2pActivity wifiP2pActivity) {
-        this.wifiP2pActivity = wifiP2pActivity;
+    public WifiP2pFragmentReceiver(WifiP2pFragment wifiP2PFragment) {
+        this.wifiP2PFragment = wifiP2PFragment;
     }
 
     @Override
@@ -41,14 +41,14 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
     // Show the name in the APP
     private void wifiP2pThisDeviceChangedActionHandler(Intent intent) {
         WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
-        wifiP2pActivity.showDeviceName(device.deviceName);
+        wifiP2PFragment.showDeviceName(device.deviceName);
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION
     // Show the update device list
     private void updateNearbyDevicesActionHandler(Intent intent) {
         Log.d(LOG_TAG, "I'm going to update nearby devices from the service");
-        wifiP2pActivity.updateNearByDevicesFromService();
+        wifiP2PFragment.updateNearByDevicesFromService();
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_STATE_ACTION
@@ -61,7 +61,7 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
             return;
         }
         WifiP2pService.WifiP2pState state = values[index];
-        wifiP2pActivity.setState(state);
+        wifiP2PFragment.setState(state);
         Log.d(LOG_TAG, "Set activity state " + state);
     }
 
@@ -72,14 +72,14 @@ public class WifiP2pActivityReceiver extends BroadcastReceiver {
         if (ip == null) {
             ip = "";
         }
-        wifiP2pActivity.setIp(ip);
+        wifiP2PFragment.setIp(ip);
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_PORT_ACTION
     // Show port
     private void updatePortActionHandler(Intent intent) {
         int port = intent.getIntExtra(WifiP2pService.INTENT_EXTRA_REGISTRATION_PORT, 0);
-        wifiP2pActivity.setPort(port);
+        wifiP2PFragment.setPort(port);
     }
 
 }

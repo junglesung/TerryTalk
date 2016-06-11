@@ -92,7 +92,6 @@ public class WifiP2pService extends Service
     private ArrayList<HashMap<String, String>> clientDevices;
     // Finite state machine ----------------------------------------------------------------------
     private WifiP2pState currentState = WifiP2pState.STOPPED;  // Default state
-    private boolean isServer = false;
     private boolean isConnected = false;  // Indicate whether it can removeGroup()
     private boolean isGroupOwner = false;  // Indicate whether it is a Wi-Fi direct group owner
     private boolean peerDiscoveryStopped = true;  // Indicate whether it can discoverPeers()
@@ -491,7 +490,7 @@ public class WifiP2pService extends Service
         int NOTIFICATION_ID = 1;
         // assign the song name to songName
         PendingIntent pi = PendingIntent.getActivity(this, 0,
-                new Intent(this, WifiP2pActivity.class),
+                new Intent(this, WifiP2pFragment.class),
                 PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
