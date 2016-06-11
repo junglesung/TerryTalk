@@ -1,4 +1,5 @@
 <resources>
+    <!-- WifiP2pFragment -->
     <string name="app_name">TerryTalk</string>
     <string name="name">Name</string>
     <string name="state">State</string>
@@ -18,11 +19,14 @@
     <string name="unavailable">Unavailable</string>
     <string name="terry_talks_is_still_running">Terry Talks is still running</string>
     <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
-    <!--FSM V2.1-->
+    <!-- FSM V2.1 -->
     <string name="try_again">Try again</string>
     <string name="please_refresh_again">Please refresh again</string>
     <string name="please_restart_app">Please restart APP</string>
     <string name="please_reboot">Please reboot</string>
     <string name="please_the_client_connect_again">Please the client connect again</string>
     <string name="please_input_the_right_port">Please input the right port</string>
+    <!-- PasswordFragment -->
+    <string name="password">Password</string>
+    <string name="connect">Connect</string>
 </resources>

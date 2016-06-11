@@ -11,6 +11,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         // UI
-        getFragmentManager().beginTransaction().add(R.id.frameMain, new WifiP2pFragment()).commit();
+//        getFragmentManager().beginTransaction().add(R.id.frameMain, new WifiP2pFragment()).commit();
+        getFragmentManager().beginTransaction().add(R.id.frameMain, new PasswordFragment()).commit();
     }
 }
