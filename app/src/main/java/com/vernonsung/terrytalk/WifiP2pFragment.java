@@ -1,23 +1,31 @@
 package com.vernonsung.terrytalk;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.Fragment;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -33,8 +41,31 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
+/**
+ * A {@link Fragment} for users to manipulate Wi-Fi direct connection.
+ * Activities that contain this fragment must implement the
+ * {@link WifiP2pFragment.OnPortRequirementListener} interface
+ * to handle interaction events.
+ */
 public class WifiP2pFragment extends Fragment
-        implements ServiceConnection {
+        implements ServiceConnection,
+                   SwipeRefreshLayout.OnRefreshListener,
+                   Handler.Callback {
+
+    /**
+     * This interface must be implemented by activities that contain this
+     * fragment to allow an interaction in this fragment to be communicated
+     * to the activity and potentially other fragments contained in that
+     * activity.
+     * <p/>
+     * See the Android Training lesson <a href=
+     * "http://developer.android.com/training/basics/fragments/communicating.html"
+     * >Communicating with Other Fragments</a> for more information.
+     */
+    public interface OnPortRequirementListener {
+        void onPortRequirement();
+    }
+
     // Schedule task through handler to call the service's methods
     private enum ServiceTask {
         UPDATE_IP, UPDATE_PORT, UPDATE_DEVICES, UPDATE_STATE
@@ -54,9 +85,18 @@ public class WifiP2pFragment extends Fragment
     // Bind to service to get information
     private WifiP2pService wifiP2pService;
     private LinkedList<ServiceTask> serviceTaskQueue = new LinkedList<>();
+    private boolean serviceStopped = true;
 
     // Permission request
     private static final int PERMISSION_REQUEST_SERVICE = 100;
+
+    // Interact with the activity
+    private OnPortRequirementListener onPortRequirementListener;
+
+    // Display refresh finished 1s later
+    private Handler handlerRefreshFinish;
+    private static final int HANDLER_REFRESH_FINISH_WHAT = 13;
+    private static final int HANDLER_REFRESH_FINISH_DELAY_MS = 1000;
 
     // Connect to target
     String targetName;
@@ -67,9 +107,7 @@ public class WifiP2pFragment extends Fragment
     private TextView textViewState;
     private TextView textViewIp;
     private TextView textViewPort;
-    private Button buttonRefresh;
-    private Button buttonStop;
-    private EditText editTextPort;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private ListView listViewDevices;
 
     // Function objects
@@ -77,16 +115,24 @@ public class WifiP2pFragment extends Fragment
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
-            try {
-                targetPort = Integer.parseInt(editTextPort.getText().toString());
-            } catch (NumberFormatException e) {
-                Log.e(LOG_TAG, "User input port is not an integer.");
-                Toast.makeText(getActivity(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
-                return;
-            }
-            serviceActionConnect();
+//            try {
+//                targetPort = Integer.parseInt(editTextPort.getText().toString());
+//            } catch (NumberFormatException e) {
+//                Log.e(LOG_TAG, "User input port is not an integer.");
+//                Toast.makeText(getActivity(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
+//                return;
+//            }
+            // Change to another fragment for user to input port
+            onPortRequirementListener.onPortRequirement();
         }
     };
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+        handlerRefreshFinish = new Handler(this);
+    }
 
     @Nullable
     @Override
@@ -97,9 +143,7 @@ public class WifiP2pFragment extends Fragment
         textViewState = (TextView)view.findViewById(R.id.textViewState);
         textViewIp = (TextView)view.findViewById(R.id.textViewIp);
         textViewPort = (TextView)view.findViewById(R.id.textViewPort);
-        buttonRefresh = (Button)view.findViewById(R.id.buttonRefresh);
-        buttonStop = (Button)view.findViewById(R.id.buttonStop);
-        editTextPort = (EditText)view.findViewById(R.id.editTextPort);
+        swipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipeRefreshLayoutDevices);
         listViewDevices = (ListView)view.findViewById(R.id.listViewDevices);
         textViewName.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -107,18 +151,7 @@ public class WifiP2pFragment extends Fragment
                 startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
             }
         });
-        buttonRefresh.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                serviceActionRefresh();
-            }
-        });
-        buttonStop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                serviceActionStop();
-            }
-        });
+        swipeRefreshLayout.setOnRefreshListener(this);
         listViewDevicesAdapter = new SimpleAdapter(getActivity(),
                                                    nearbyDevices,
                                                    android.R.layout.simple_list_item_2,
@@ -131,12 +164,62 @@ public class WifiP2pFragment extends Fragment
     }
 
     @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.menu_wifi_p2p_fragment, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menuItemStop:
+                serviceActionStop();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         initializeBroadcastReceiver();
         // Start the main service if it's not started yet
         checkPermissionToStartService();
     }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        if (context instanceof OnPortRequirementListener) {
+            onPortRequirementListener = (OnPortRequirementListener) context;
+        } else {
+            throw new RuntimeException(context.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
+    }
+
+    /**
+     * Deprecated in API level 23. Keep it here for backward compatibility
+     */
+    @Deprecated
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (activity instanceof OnPortRequirementListener) {
+            onPortRequirementListener = (OnPortRequirementListener) activity;
+        } else {
+            throw new RuntimeException(activity.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        onPortRequirementListener = null;
+    }
+
 
     @Override
     public void onStart() {
@@ -168,10 +251,19 @@ public class WifiP2pFragment extends Fragment
         super.onStop();
     }
 
+    @Override
+    public void onDestroy() {
+        if (!serviceStopped) {
+            Toast.makeText(getActivity(), R.string.terry_talks_still_runs_in_background, Toast.LENGTH_SHORT).show();
+        }
+        super.onDestroy();
+    }
+
     // Interface ServiceConnection ---------------------------------------------------------------
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
         Log.d(LOG_TAG, "Service bound");
+        serviceStopped = false;
         WifiP2pService.LocalBinder binder = (WifiP2pService.LocalBinder)service;
         wifiP2pService = binder.getService();
         doServiceTask();
@@ -184,6 +276,26 @@ public class WifiP2pFragment extends Fragment
         Log.d(LOG_TAG, "Service disconnected unexpectedly");
     }
     // Interface ServiceConnection ---------------------------------------------------------------
+
+    // Interface SwipeRefreshLayout.OnRefreshListener --------------------------------------------
+    @Override
+    public void onRefresh() {
+        serviceActionRefresh();
+    }
+    // Interface SwipeRefreshLayout.OnRefreshListener --------------------------------------------
+
+    // Interface Handler.Callback ----------------------------------------------------------------
+    @Override
+    public boolean handleMessage(Message msg) {
+        switch (msg.what) {
+            case HANDLER_REFRESH_FINISH_WHAT:
+                // Turn the refreshing sign OFF
+                swipeRefreshLayout.setRefreshing(false);
+                break;
+        }
+        return true;
+    }
+    // Interface Handler.Callback ----------------------------------------------------------------
 
     // Permission check and request for Android 6+ -----------------------------------------------
     @Override
@@ -282,6 +394,12 @@ public class WifiP2pFragment extends Fragment
         Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_REFRESH);
         getActivity().startService(intent);
+        // Display the refresh sign
+        if (!swipeRefreshLayout.isRefreshing()) {
+            swipeRefreshLayout.setRefreshing(true);
+        }
+        // Schedule to turn the refresh sign OFF
+        handlerRefreshFinish.sendEmptyMessageDelayed(HANDLER_REFRESH_FINISH_WHAT, HANDLER_REFRESH_FINISH_DELAY_MS);
     }
 
     private void serviceActionStop() {
@@ -302,99 +420,51 @@ public class WifiP2pFragment extends Fragment
         if (port == 0) {
             textViewPort.setText("");
         } else {
-            String s = ":" + String.valueOf(port);
-            textViewPort.setText(s);
+            textViewPort.setText(String.valueOf(port));
         }
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
         switch (state) {
             case INITIALIZING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(false);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case SEARCHING:
             case IDLE:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case REJECTING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case SERVER:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case SERVER_DISCONNECTING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case CONNECTING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case CANCELING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case RECONNECTING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case REGISTERING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case CONNECTED:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(true);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case DISCONNECTING:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(true);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case STOPPING:
             case STOPPED:
-                buttonRefresh.setText(R.string.refresh);
-                buttonRefresh.setEnabled(false);
-                buttonStop.setText(R.string.stop);
-                buttonStop.setEnabled(false);
                 listViewDevices.setOnItemClickListener(null);
                 // Leave APP
+                serviceStopped = true;
                 getActivity().finish();
                 break;
         }
@@ -527,5 +597,15 @@ public class WifiP2pFragment extends Fragment
         getActivity().unbindService(this);
         wifiP2pService = null;
         Log.d(LOG_TAG, "Service unbound");
+    }
+
+    // For the activity to call ------------------------------------------------------------------
+    public void setTargetPort(int targetPort) {
+        this.targetPort = targetPort;
+        Log.d(LOG_TAG, "Set target port " + String.valueOf(targetPort));
+    }
+
+    public void connectTarget() {
+        serviceActionConnect();
     }
 }

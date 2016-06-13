@@ -20,12 +20,12 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="@string/state"
         android:id="@+id/textViewState"
         android:layout_alignParentTop="true"
-        android:layout_toEndOf="@+id/textViewName"
-        android:paddingStart="10dp" />
+        android:layout_alignParentEnd="true"
+        android:layout_margin="5dp"
+        android:textAppearance="@android:style/TextAppearance.Medium" />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -33,7 +33,24 @@
         android:text="@string/ip"
         android:id="@+id/textViewIp"
         android:layout_below="@id/textViewName"
-        android:layout_alignParentStart="true" />
+        android:layout_alignParentStart="true"
+        android:visibility="invisible" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/colon"
+        android:id="@+id/textViewColon"
+        android:layout_below="@id/textViewName" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/textViewName"
+        android:layout_toLeftOf="@id/textViewColon"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/password"
+        android:id="@+id/textViewPasswordColon" />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -41,37 +58,17 @@
         android:text="@string/port"
         android:id="@+id/textViewPort"
         android:layout_alignTop="@id/textViewIp"
-        android:layout_toEndOf="@id/textViewIp"
+        android:layout_toEndOf="@id/textViewColon"
         android:paddingStart="10dp" />
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/refresh"
-        android:id="@+id/buttonRefresh"
-        android:layout_below="@id/textViewIp"
-        android:layout_alignParentStart="true" />
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/stop"
-        android:id="@+id/buttonStop"
-        android:layout_below="@id/textViewIp"
-        android:layout_toEndOf="@id/buttonRefresh"
-        android:enabled="false" />
-    <EditText
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:inputType="number"
-        android:ems="10"
-        android:id="@+id/editTextPort"
-        android:layout_above="@+id/listViewDevices"
-        android:layout_toEndOf="@+id/buttonStop"
-        android:paddingStart="10dp" />
-    <ListView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/listViewDevices"
-        android:layout_below="@+id/buttonRefresh"
-        android:layout_alignParentStart="true" />
+    <android.support.v4.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayoutDevices"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/textViewPasswordColon" >
+        <ListView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/listViewDevices" />
+    </android.support.v4.widget.SwipeRefreshLayout>
 
 </RelativeLayout>

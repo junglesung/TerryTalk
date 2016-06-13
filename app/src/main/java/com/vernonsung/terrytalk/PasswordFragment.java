@@ -1,21 +1,20 @@
 package com.vernonsung.terrytalk;
 
+import android.app.Activity;
 import android.content.Context;
-import android.net.Uri;
 import android.os.Bundle;
-//import android.support.v4.app.Fragment;
 import android.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.GridView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 
 /**
- * A simple {@link Fragment} subclass.
+ * A {@link Fragment} for users to enter password.
  * Activities that contain this fragment must implement the
  * {@link PasswordFragment.OnFragmentInteractionListener} interface
  * to handle interaction events.
@@ -23,6 +22,8 @@ import android.widget.TextView;
  * create an instance of this fragment.
  */
 public class PasswordFragment extends Fragment implements View.OnClickListener {
+    private static final String LOG_TAG = "testtest";
+
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -101,10 +102,25 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
         return view;
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
+    // Send user input password to the activity so that the activity can send it to WifiP2pFragment in order to connect to the server.
+    private void sendPassword() {
+        if (mListener == null) {
+            Log.e(LOG_TAG, "mListener = null");
+            return;
+        }
+        String s = textViewPassword.getText().toString();
+        int password = 0;
+        try {
+            password = Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            password = 0;
+        }
+        // Password is a port number so it must be 1~65535
+        if (password > 0 && password < 65536) {
+            mListener.onFragmentInteraction(password);
+        } else {
+            Log.d(LOG_TAG, "Invalid password " + s);
+            Toast.makeText(getActivity(), R.string.invalid_password, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -115,6 +131,21 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
             mListener = (OnFragmentInteractionListener) context;
         } else {
             throw new RuntimeException(context.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
+    }
+
+    /**
+     * Deprecated in API level 23. Keep it here for backward compatibility
+      */
+    @Deprecated
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (activity instanceof OnFragmentInteractionListener) {
+            mListener = (OnFragmentInteractionListener) activity;
+        } else {
+            throw new RuntimeException(activity.toString()
                     + " must implement OnFragmentInteractionListener");
         }
     }
@@ -176,6 +207,7 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
                 }
                 break;
             case R.id.textViewConnect:
+                sendPassword();
                 break;
         }
     }
@@ -191,7 +223,6 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+        void onFragmentInteraction(int password);
     }
 }

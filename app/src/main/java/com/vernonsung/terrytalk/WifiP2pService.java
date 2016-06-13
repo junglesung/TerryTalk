@@ -277,18 +277,18 @@ public class WifiP2pService extends Service
                 break;
             case SERVER_DISCONNECTING:
                 // From dismissServer()
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 changeState(WifiP2pState.SERVER);
                 break;
             case CONNECTING:
                 // From connectTarget()
                 changeState(WifiP2pState.IDLE);
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 discoverNearbyDevices();
                 break;
             case CANCELING:
                 // From stopOnGoingConnectRequest()
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
             case RECONNECTING:
                 break;
@@ -301,11 +301,11 @@ public class WifiP2pService extends Service
             case DISCONNECTING:
                 // From disconnectTarget()
                 changeState(WifiP2pState.CONNECTED);
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
             case STOPPING:
                 // From stopService()
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
             case STOPPED:
                 // From no-where
@@ -341,7 +341,7 @@ public class WifiP2pService extends Service
             case CONNECTING:
                 // From connectTarget()
                 changeState(WifiP2pState.IDLE);
-                Toast.makeText(WifiP2pService.this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 discoverNearbyDevices();
                 break;
             case CANCELING:
@@ -392,30 +392,35 @@ public class WifiP2pService extends Service
                 break;
             case REJECTING:
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
             case SERVER:
                 dismissServer();
                 break;
             case SERVER_DISCONNECTING:
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
             case CONNECTING:
                 stopOnGoingConnectRequest();
                 break;
             case REGISTERING:
                 // TODO: stop socket client async task in the future
+                Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
             case CONNECTED:
                 disconnectTarget();
                 break;
             case CANCELING:
                 // Do nothing. The time is very short.
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
             case RECONNECTING:
                 // TODO: Cancel connecting in the future
                 break;
             case DISCONNECTING:
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
             case STOPPING:
             case STOPPED:
@@ -460,6 +465,7 @@ public class WifiP2pService extends Service
     private void onActionRefresh() {
         switch (currentState) {
             case INITIALIZING:
+                Toast.makeText(this, R.string.please_wait_for_initializing, Toast.LENGTH_SHORT).show();
                 break;
             case SEARCHING:
             case IDLE:
@@ -472,6 +478,7 @@ public class WifiP2pService extends Service
             case CANCELING:
             case RECONNECTING:
                 // wifiP2pManager.discoverPeers() conflicts with wifiP2pManager.connect()
+                Toast.makeText(this, R.string.please_try_later, Toast.LENGTH_SHORT).show();
                 break;
             case REGISTERING:
             case CONNECTED:
@@ -480,6 +487,7 @@ public class WifiP2pService extends Service
             case DISCONNECTING:
             case STOPPING:
             case STOPPED:
+                Toast.makeText(this, R.string.please_restart_app, Toast.LENGTH_SHORT).show();
                 break;
         }
     }
@@ -495,7 +503,7 @@ public class WifiP2pService extends Service
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText(getString(R.string.terry_talks_is_still_running))
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.mipmap.ic_speech_balloon_orange_t)
                 .setContentIntent(pi)
                 .build();
         notification.flags |= Notification.FLAG_ONGOING_EVENT;
@@ -613,7 +621,7 @@ public class WifiP2pService extends Service
         }
         if (serverSocket == null || serverSocket.isClosed()) {
             Log.d(LOG_TAG, "Initial server socket failed. Terminate.");
-            Toast.makeText(this, R.string.try_again, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
             stopService();
             return;
         }
@@ -973,7 +981,7 @@ public class WifiP2pService extends Service
         if (!isConnected) {
             // Server detected I'm the group owner instead of itself.
             Log.d(LOG_TAG, "Server detected I'm the group owner instead of itself. Clear remembered groups and disconnect");
-            Toast.makeText(this, R.string.try_again, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
             // Clear remembered group so that I won't be the group owner next time I connect to the server.
             clearRememberedDevicesStep1();
             // Disconnect. User may manually connect again.
@@ -983,7 +991,7 @@ public class WifiP2pService extends Service
             if (isGroupOwner) {
                 // I found I should not be the group owner.
                 Log.d(LOG_TAG, "I should not be the group owner. Clear remembered groups and disconnect");
-                Toast.makeText(this, R.string.try_again, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 // Clear remembered group so that I won't be the group owner next time I connect to the server.
                 clearRememberedDevicesStep1();
                 // Disconnect. User may manually connect again.
@@ -1006,11 +1014,11 @@ public class WifiP2pService extends Service
     public void audioStreamSetup(AudioStream audioStream) {
         if (audioStream == null) {
             Log.d(LOG_TAG, "Registration failed");
-            Toast.makeText(this, R.string.try_again, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
             disconnectTarget();
         } else {
             // Play the audio stream
-            audioTransceiver.addStream(wifiP2pTargetDeviceMac, audioStream);
+            audioTransceiver.addClientStream(wifiP2pTargetDeviceMac, audioStream);
             changeState(WifiP2pState.CONNECTED);
         }
     }

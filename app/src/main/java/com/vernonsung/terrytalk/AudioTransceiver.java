@@ -94,7 +94,7 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
     }
 
     /**
-     * Add a new audio stream
+     * Add a new audio stream for a server. The stream is set to both speak and listen.
      *
      * @param remoteMac The MAC address of the remote device. This is the ID of the stream in the
      *                  list so that it can be identify to remove when the remote device
@@ -104,9 +104,9 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
      *                     to.
      * @return Local audio stream port or 0 in the case of error.
      */
-    public synchronized int addStream(@NonNull String remoteMac,
-                                      @NonNull InetAddress localIp,
-                                      @NonNull InetSocketAddress remoteSocket) {
+    public synchronized int addServerStream(@NonNull String remoteMac,
+                                            @NonNull InetAddress localIp,
+                                            @NonNull InetSocketAddress remoteSocket) {
         if (currentState == PlayerState.INITIAL) {
             Log.e(LOG_TAG, "Initial audio transceiver failed, please restart");
             return 0;
@@ -141,21 +141,21 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
     }
 
     /**
-     * Add an associated audio stream
+     * Add an associated audio stream for a client. The stream is set to listen only.
      *
      * @param remoteMac The MAC address of the remote device. This is the ID of the stream in the
      *                  list so that it can be identify to remove when the remote device
      *                  disconnects.
      * @param stream An audio stream which is bound to local ip and associated to a remote socket.
      */
-    public synchronized void addStream(@NonNull String remoteMac, @NonNull AudioStream stream) {
+    public synchronized void addClientStream(@NonNull String remoteMac, @NonNull AudioStream stream) {
         if (currentState == PlayerState.INITIAL) {
             Log.e(LOG_TAG, "Initial audio transceiver failed, please restart");
             return;
         }
 
         stream.setCodec(AudioCodec.AMR);
-        stream.setMode(RtpStream.MODE_NORMAL);
+        stream.setMode(RtpStream.MODE_RECEIVE_ONLY);
 
         if (currentState == PlayerState.PREPARED) {
             Log.d(LOG_TAG, "The first audio stream is added. Start palying audio.");

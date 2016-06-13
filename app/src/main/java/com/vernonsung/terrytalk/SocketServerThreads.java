@@ -87,9 +87,7 @@ public class SocketServerThreads implements Runnable{
 
         // Setup audio stream
         private int setupAudioStream(String remoteMac, int remoteAudioStreamPort) {
-            // Vernon debug
-            Log.d(LOG_TAG, "Socket local address " + socket.getLocalAddress().getHostAddress());
-            return audioTransceiver.addStream(remoteMac,
+            return audioTransceiver.addServerStream(remoteMac,
                     socket.getLocalAddress(),
                     new InetSocketAddress(socket.getInetAddress(), remoteAudioStreamPort));
         }

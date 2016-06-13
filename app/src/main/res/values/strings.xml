@@ -1,8 +1,9 @@
 <resources>
     <!-- WifiP2pFragment -->
-    <string name="app_name">TerryTalk</string>
+    <string name="app_name">TerryTalks</string>
     <string name="name">Name</string>
     <string name="state">State</string>
+    <string name="colon">:</string>
     <string name="ip">IP</string>
     <string name="port">Port</string>
     <string name="refresh">Refresh</string>
@@ -17,16 +18,21 @@
     <string name="failed">Failed</string>
     <string name="invited">Invited</string>
     <string name="unavailable">Unavailable</string>
-    <string name="terry_talks_is_still_running">Terry Talks is still running</string>
-    <string name="registration_service_terminated_accidentally">Registration service terminated accidentally</string>
+    <string name="terry_talks_is_still_running">TerryTalks is still running</string>
+    <string name="terry_talks_still_runs_in_background">TerryTalks still runs in background</string>
     <!-- FSM V2.1 -->
-    <string name="try_again">Try again</string>
+    <string name="please_try_again">Please try again</string>
+    <string name="please_try_later">Please try later</string>
     <string name="please_refresh_again">Please refresh again</string>
     <string name="please_restart_app">Please restart APP</string>
     <string name="please_reboot">Please reboot</string>
     <string name="please_the_client_connect_again">Please the client connect again</string>
     <string name="please_input_the_right_port">Please input the right port</string>
+    <string name="please_wait_for_disconnecting">Please wait for disconnecting</string>
+    <string name="please_wait_for_initializing">Please wait for initializing</string>
+    <string name="please_turn_on_wifi">Please turn on Wi-Fi</string>
     <!-- PasswordFragment -->
     <string name="password">Password</string>
     <string name="connect">Connect</string>
+    <string name="invalid_password">Invalid password</string>
 </resources>
