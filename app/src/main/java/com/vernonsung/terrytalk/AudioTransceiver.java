@@ -81,7 +81,7 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
                 // Lost focus for a short time
-                // Do nothing
+                group.setMode(AudioGroup.MODE_ON_HOLD);
                 Log.d(LOG_TAG, "Audio focus change -> AUDIOFOCUS_LOSS_TRANSIENT");
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
@@ -122,7 +122,7 @@ public class AudioTransceiver implements AudioManager.OnAudioFocusChangeListener
         }
         Log.d(LOG_TAG, "Local port " + String.valueOf(stream.getLocalPort()));
         stream.setCodec(AudioCodec.AMR);
-        stream.setMode(RtpStream.MODE_NORMAL);
+        stream.setMode(RtpStream.MODE_SEND_ONLY);
 
         if (currentState == PlayerState.PREPARED) {
             Log.d(LOG_TAG, "The first audio stream is added. Start palying audio.");

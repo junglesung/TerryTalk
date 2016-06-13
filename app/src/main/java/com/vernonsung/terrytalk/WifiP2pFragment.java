@@ -234,6 +234,8 @@ public class WifiP2pFragment extends Fragment
         // Receive intents from the service
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(wifiP2PFragmentReceiver, wifiP2pServiceIntentFilter);
         Log.d(LOG_TAG, "Broadcast receiver registered");
+        // Update information from Wi-Fi P2P service
+        updateAllFromService();
     }
 
     @Override
@@ -586,6 +588,13 @@ public class WifiP2pFragment extends Fragment
         if (wifiP2pService == null) {
             bindWifiP2pService();
         }
+    }
+
+    private void updateAllFromService() {
+        updateNearByDevicesFromService();
+        updateIpFromService();
+        updatePortFromService();
+        updateStateFromService();
     }
 
     private void bindWifiP2pService() {
