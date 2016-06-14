@@ -1,6 +1,7 @@
 package com.vernonsung.terrytalk;
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.ComponentName;
@@ -10,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -324,25 +326,28 @@ public class WifiP2pFragment extends Fragment
         checkPermissionToStartService();
     }
 
+    @TargetApi(23)
     private void checkPermissionToStartService() {
-        // List all permissions to check for grants
-        String[] permissions = new String[] {Manifest.permission.RECORD_AUDIO};
-        ArrayList<String> permissionsToRequest = new ArrayList<>();
+        int currentApiVersion = android.os.Build.VERSION.SDK_INT;
+        // Check permissions after Android 6 (API 23)
+        if (currentApiVersion >= Build.VERSION_CODES.M) {
+            // List all permissions to check for grants
+            String[] permissions = new String[]{Manifest.permission.RECORD_AUDIO};
+            ArrayList<String> permissionsToRequest = new ArrayList<>();
 
-        // Check every permissions
-        for (String s : permissions) {
-            if (ContextCompat.checkSelfPermission(getActivity(), s) == PackageManager.PERMISSION_DENIED) {
-                permissionsToRequest.add(s);
+            // Check every permissions
+            for (String s : permissions) {
+                if (ContextCompat.checkSelfPermission(getActivity(), s) == PackageManager.PERMISSION_DENIED) {
+                    permissionsToRequest.add(s);
+                }
             }
-        }
 
-        // There are permission grants to request
-        if (!permissionsToRequest.isEmpty()) {
-            ActivityCompat.requestPermissions(getActivity(),
-                    permissionsToRequest.toArray(new String[0]),
-                    PERMISSION_REQUEST_SERVICE);
-            // Async call back onRequestPermissionsResult() will be called
-            return;
+            // There are permission grants to request
+            if (!permissionsToRequest.isEmpty()) {
+                requestPermissions(permissionsToRequest.toArray(new String[0]), PERMISSION_REQUEST_SERVICE);
+                // Async call back onRequestPermissionsResult() will be called
+                return;
+            }
         }
 
         // Finally all permission are granted

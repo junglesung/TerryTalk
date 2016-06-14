@@ -657,7 +657,9 @@ public class WifiP2pService extends Service
 
     private void stopServicePart2() {
         // Close the registration socket
-        socketServerThreads.setToQuit(true);
+        if (socketServerThreads != null) {
+            socketServerThreads.setToQuit(true);
+        }
         // Stop receiving intents related to Wi-Fi P2p
         try {
             unregisterReceiver(wifiP2pReceiver);
