@@ -19,7 +19,7 @@ import android.os.Message;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -31,8 +31,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -70,7 +68,7 @@ public class WifiP2pFragment extends Fragment
 
     // Schedule task through handler to call the service's methods
     private enum ServiceTask {
-        UPDATE_IP, UPDATE_PORT, UPDATE_DEVICES, UPDATE_STATE
+        UPDATE_IP, UPDATE_PORT, UPDATE_NEARBY_DEVICES, UPDATE_STATE
     }
 
     private static final String LOG_TAG = "testtest";
@@ -111,6 +109,7 @@ public class WifiP2pFragment extends Fragment
     private TextView textViewPort;
     private SwipeRefreshLayout swipeRefreshLayout;
     private ListView listViewDevices;
+    private FloatingActionButton fabServer;
 
     // Function objects
     private AdapterView.OnItemClickListener listViewDevicesOnItemClickListener = new AdapterView.OnItemClickListener() {
@@ -147,6 +146,7 @@ public class WifiP2pFragment extends Fragment
         textViewPort = (TextView)view.findViewById(R.id.textViewPort);
         swipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipeRefreshLayoutDevices);
         listViewDevices = (ListView)view.findViewById(R.id.listViewDevices);
+        fabServer = (FloatingActionButton)view.findViewById(R.id.fabServer);
         textViewName.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -161,6 +161,12 @@ public class WifiP2pFragment extends Fragment
                                                    new int[] {android.R.id.text1, android.R.id.text2});
         listViewDevices.setAdapter(listViewDevicesAdapter);
         listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
+        fabServer.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                serviceActionServer();
+            }
+        });
 
         return view;
     }
@@ -176,6 +182,9 @@ public class WifiP2pFragment extends Fragment
         switch (item.getItemId()) {
             case R.id.menuItemStop:
                 serviceActionStop();
+                return true;
+            case R.id.menuItemShow:
+                serviceActionShow();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -367,7 +376,8 @@ public class WifiP2pFragment extends Fragment
 
         // Filter the intent sent from WifiP2pService in order to react to service state change
         wifiP2pServiceIntentFilter = new IntentFilter();
-        wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION);
+        wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_GROUP_OWNERS_ACTION);
+        wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_CLIENT_DEVICES_ACTION);
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_STATE_ACTION);
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_IP_ACTION);
         wifiP2pServiceIntentFilter.addAction(WifiP2pService.UPDATE_PORT_ACTION);
@@ -378,10 +388,7 @@ public class WifiP2pFragment extends Fragment
         intent.setAction(WifiP2pService.ACTION_START);
         getActivity().startService(intent);
         // Update data from the service
-        updateStateFromService();
-        updateIpFromService();
-        updatePortFromService();
-        updateNearByDevicesFromService();
+        updateAllFromService();
     }
 
     private void serviceActionConnect() {
@@ -415,6 +422,18 @@ public class WifiP2pFragment extends Fragment
         getActivity().startService(intent);
     }
 
+    private void serviceActionShow() {
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
+        intent.setAction(WifiP2pService.ACTION_SHOW);
+        getActivity().startService(intent);
+    }
+
+    private void serviceActionServer() {
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
+        intent.setAction(WifiP2pService.ACTION_SERVER);
+        getActivity().startService(intent);
+    }
+
     public void showDeviceName(String name) {
         textViewName.setText(name);
     }
@@ -424,51 +443,48 @@ public class WifiP2pFragment extends Fragment
     }
 
     public void setPort(int port) {
-        if (port == 0) {
-            textViewPort.setText("");
-        } else {
-            textViewPort.setText(String.valueOf(port));
+        String s = "Password: ";
+        if (port != 0) {
+            s += String.valueOf(port);
         }
+        textViewPort.setText(s);
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
         switch (state) {
             case INITIALIZING:
+                fabServer.setVisibility(View.INVISIBLE);
+                textViewPort.setVisibility(View.INVISIBLE);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case SEARCHING:
             case IDLE:
+                fabServer.setVisibility(View.VISIBLE);
+                textViewPort.setVisibility(View.INVISIBLE);
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
+            case CREATING:
             case REJECTING:
-                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
-                break;
             case SERVER:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case SERVER_DISCONNECTING:
+                fabServer.setVisibility(View.INVISIBLE);
+                textViewPort.setVisibility(View.VISIBLE);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case CONNECTING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case CANCELING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case RECONNECTING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case REGISTERING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case CONNECTED:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case DISCONNECTING:
+                fabServer.setVisibility(View.INVISIBLE);
+                textViewPort.setVisibility(View.INVISIBLE);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case STOPPING:
             case STOPPED:
+                fabServer.setVisibility(View.INVISIBLE);
+                textViewPort.setVisibility(View.INVISIBLE);
                 listViewDevices.setOnItemClickListener(null);
                 // Leave APP
                 serviceStopped = true;
@@ -478,36 +494,58 @@ public class WifiP2pFragment extends Fragment
         textViewState.setText(state.toString());
     }
 
-    private void updateNearByDevicesFromServiceTaskHandler() {
+    private void updateNearbyDevicesFromServiceTaskHandler() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        switch (wifiP2pService.getCurrentState()) {
+            case INITIALIZING:
+            case SEARCHING:
+            case IDLE:
+                updateGroupOwnersFromServiceTaskHandler();
+                break;
+            case CREATING:
+            case REJECTING:
+            case SERVER:
+            case SERVER_DISCONNECTING:
+                updateClientDevicesFromServiceTaskHandler();
+                break;
+            case CONNECTING:
+            case CANCELING:
+            case RECONNECTING:
+            case REGISTERING:
+            case CONNECTED:
+            case DISCONNECTING:
+            case STOPPING:
+            case STOPPED:
+                updateGroupOwnersFromServiceTaskHandler();
+                break;
+        }
+    }
+
+    private void updateGroupOwnersFromServiceTaskHandler() {
         if (wifiP2pService == null) {
             Log.e(LOG_TAG, "Service is not running");
             Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
             return;
         }
         nearbyDevices.clear();
-        nearbyDevices.addAll(wifiP2pService.getNearbyDevices());
-        ArrayList<HashMap<String, String>> clients = wifiP2pService.getClients();
-        // Merge clients status to nearbyDevices
-        for (HashMap<String, String> client : clients) {
-            String name = client.get(WifiP2pService.MAP_ID_DEVICE_NAME);
-            boolean found = false;
-            for (HashMap<String, String> device : nearbyDevices) {
-                if (name.equals(device.get(WifiP2pService.MAP_ID_DEVICE_NAME))) {
-                    String status = device.get(WifiP2pService.MAP_ID_STATUS);
-                    if (status.compareToIgnoreCase(getString(R.string.connected)) != 0) {
-                        Log.d(LOG_TAG, "Replace status " + status + " by Connected");
-                        device.put(WifiP2pService.MAP_ID_STATUS, getString(R.string.connected));
-                    }
-                    found = true;
-                    break;
-                }
-            }
-            // Add client if it's not in the nearbyDevices yet
-            if (!found) {
-                nearbyDevices.add(0, client);
-            }
+        nearbyDevices.addAll(wifiP2pService.getGroupOwners());
+        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " groups now");
+        listViewDevicesAdapter.notifyDataSetChanged();
+    }
+
+    private void updateClientDevicesFromServiceTaskHandler() {
+        if (wifiP2pService == null) {
+            Log.e(LOG_TAG, "Service is not running");
+            Toast.makeText(getActivity(), R.string.please_restart_app, Toast.LENGTH_SHORT).show();
+            return;
         }
-        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " devices now");
+        nearbyDevices.clear();
+        nearbyDevices.addAll(wifiP2pService.getClients());
+        Log.d(LOG_TAG, "Activity has " + nearbyDevices.size() + " clients now");
         listViewDevicesAdapter.notifyDataSetChanged();
     }
 
@@ -556,8 +594,8 @@ public class WifiP2pFragment extends Fragment
                 case UPDATE_PORT:
                     updatePortFromServiceTaskHandler();
                     break;
-                case UPDATE_DEVICES:
-                    updateNearByDevicesFromServiceTaskHandler();
+                case UPDATE_NEARBY_DEVICES:
+                    updateNearbyDevicesFromServiceTaskHandler();
                     break;
                 case UPDATE_STATE:
                     updateStateFromServiceTaskHandler();
@@ -567,8 +605,8 @@ public class WifiP2pFragment extends Fragment
         unbindWifiP2pService();
     }
 
-    public void updateNearByDevicesFromService() {
-        serviceTaskQueue.push(ServiceTask.UPDATE_DEVICES);
+    public void updateNearbyDevicesFromService() {
+        serviceTaskQueue.push(ServiceTask.UPDATE_NEARBY_DEVICES);
         if (wifiP2pService == null) {
             bindWifiP2pService();
         }
@@ -596,10 +634,10 @@ public class WifiP2pFragment extends Fragment
     }
 
     private void updateAllFromService() {
-        updateNearByDevicesFromService();
         updateIpFromService();
         updatePortFromService();
         updateStateFromService();
+        updateNearbyDevicesFromService();
     }
 
     private void bindWifiP2pService() {

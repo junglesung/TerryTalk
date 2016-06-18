@@ -23,8 +23,10 @@ public class WifiP2pFragmentReceiver extends BroadcastReceiver {
             // TODO: wifiP2pStateChangedActionHandler(intent);
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
             wifiP2pThisDeviceChangedActionHandler(intent);
-        } else if (WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION.equals(action)) {
-            updateNearbyDevicesActionHandler(intent);
+        } else if (WifiP2pService.UPDATE_GROUP_OWNERS_ACTION.equals(action)) {
+            updateGroupOwnersActionHandler(intent);
+        } else if (WifiP2pService.UPDATE_CLIENT_DEVICES_ACTION.equals(action)) {
+            updateClientDevicesActionHandler(intent);
         } else if (WifiP2pService.UPDATE_STATE_ACTION.equals(action)) {
             updateStateActionHandler(intent);
         } else if (WifiP2pService.UPDATE_IP_ACTION.equals(action)) {
@@ -44,11 +46,20 @@ public class WifiP2pFragmentReceiver extends BroadcastReceiver {
         wifiP2PFragment.showDeviceName(device.deviceName);
     }
 
-    // After receiving an intent with action WifiP2pService.UPDATE_NEARBY_DEVICES_ACTION
+    // After receiving an intent with action WifiP2pService.UPDATE_GROUP_OWNERS_ACTION
     // Show the update device list
-    private void updateNearbyDevicesActionHandler(Intent intent) {
-        Log.d(LOG_TAG, "I'm going to update nearby devices from the service");
-        wifiP2PFragment.updateNearByDevicesFromService();
+    private void updateGroupOwnersActionHandler(Intent intent) {
+        Log.d(LOG_TAG, "I'm going to update group owners from the service");
+        // updateNearbyDevicesFromService() will distinguish to update clients or group owners
+        wifiP2PFragment.updateNearbyDevicesFromService();
+    }
+
+    // After receiving an intent with action WifiP2pService.UPDATE_CLIENT_DEVICES_ACTION
+    // Show the update client list
+    private void updateClientDevicesActionHandler(Intent intent) {
+        Log.d(LOG_TAG, "I'm going to update client devices from the service");
+        // updateNearbyDevicesFromService() will distinguish to update clients or group owners
+        wifiP2PFragment.updateNearbyDevicesFromService();
     }
 
     // After receiving an intent with action WifiP2pService.UPDATE_STATE_ACTION

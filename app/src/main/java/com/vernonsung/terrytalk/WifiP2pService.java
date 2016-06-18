@@ -50,7 +50,7 @@ public class WifiP2pService extends Service
 
     public enum WifiP2pState {
         INITIALIZING, SEARCHING, IDLE,
-        REJECTING, SERVER, SERVER_DISCONNECTING,
+        CREATING, REJECTING, SERVER, SERVER_DISCONNECTING,
         CONNECTING, CANCELING, RECONNECTING, REGISTERING, CONNECTED, DISCONNECTING,
         STOPPING, STOPPED
     }
@@ -62,10 +62,13 @@ public class WifiP2pService extends Service
     public static final String ACTION_STOP = "com.vernonsung.testwifip2p.action.stop";  // Stop connecting, disconnect, stop this service
     public static final String ACTION_CONNECT = "com.vernonsung.testwifip2p.action.connect";  // Connect to a device
     public static final String ACTION_REFRESH = "com.vernonsung.testwifip2p.action.refresh";  // Refresh nearby device list
+    public static final String ACTION_SERVER = "com.vernonsung.testwifip2p.action.server";  // Become a Wi-Fi direct server
+    public static final String ACTION_SHOW = "com.vernonsung.testwifip2p.action.show";  // Show Wi-Fi direct remembered group in Log
     public static final String INTENT_EXTRA_TARGET = "com.vernonsung.testwifip2p.TARGET";  // String. A parameter of ACTION_CONNECT
     public static final String INTENT_EXTRA_PORT = "com.vernonsung.testwifip2p.PORT";  // int. A parameter of ACTION_CONNECT
     // Local broadcast to send
-    public static final String UPDATE_NEARBY_DEVICES_ACTION = "com.vernonsung.testwifip2p.action.update_nearby_devices";
+    public static final String UPDATE_GROUP_OWNERS_ACTION = "com.vernonsung.testwifip2p.action.update_group_owners";
+    public static final String UPDATE_CLIENT_DEVICES_ACTION = "com.vernonsung.testwifip2p.action.update_client_devices";
     public static final String UPDATE_STATE_ACTION = "com.vernonsung.testwifip2p.action.update_status";
     public static final String UPDATE_IP_ACTION = "com.vernonsung.testwifip2p.action.update_ip";
     public static final String UPDATE_PORT_ACTION = "com.vernonsung.testwifip2p.action.update_port";
@@ -88,7 +91,7 @@ public class WifiP2pService extends Service
     public static final String MAP_ID_DEVICE_NAME = "deviceName";
     public static final String MAP_ID_STATUS = "status";
     public static final String MAP_ID_MAC = "mac";
-    private ArrayList<HashMap<String, String>> nearbyDevices;
+    private ArrayList<HashMap<String, String>> groupOwners;
     private ArrayList<HashMap<String, String>> clientDevices;
     // Finite state machine ----------------------------------------------------------------------
     private WifiP2pState currentState = WifiP2pState.STOPPED;  // Default state
@@ -115,7 +118,7 @@ public class WifiP2pService extends Service
     // Constructor -------------------------------------------------------------------------------
     public WifiP2pService() {
         // Variables
-        nearbyDevices = new ArrayList<>();
+        groupOwners = new ArrayList<>();
         clientDevices = new ArrayList<>();
     }
 
@@ -134,6 +137,12 @@ public class WifiP2pService extends Service
                 break;
             case ACTION_REFRESH:
                 onActionRefresh();
+                break;
+            case ACTION_SERVER:
+                onActionCreate();
+                break;
+            case ACTION_SHOW:
+                dumpRememberedDevicesStep1();
                 break;
             default:
                 Log.e(LOG_TAG, "Unknown action " + intent.getAction());
@@ -161,20 +170,24 @@ public class WifiP2pService extends Service
     // Implement WifiP2pManager.PeerListListener
     @Override
     public void onPeersAvailable(WifiP2pDeviceList peers) {
-        nearbyDevices.clear();
+        groupOwners.clear();
         Collection<WifiP2pDevice> devices = peers.getDeviceList();
         for (WifiP2pDevice device : devices) {
             HashMap<String, String> a = new HashMap<>();
             a.put(MAP_ID_DEVICE_NAME, device.deviceName);
             a.put(MAP_ID_MAC, device.deviceAddress);
             a.put(MAP_ID_STATUS, getDeviceState(device));
-            nearbyDevices.add(a);
-            Log.d(LOG_TAG, "Found device " + device.deviceName + " " + device.deviceAddress);
+            if (device.isGroupOwner()) {
+                groupOwners.add(a);
+                Log.d(LOG_TAG, "Found group owner " + device.deviceName + " " + device.deviceAddress);
+            } else {
+                Log.d(LOG_TAG, "Found client " + device.deviceName + " " + device.deviceAddress);
+            }
         }
-        Log.d(LOG_TAG, "There are " + devices.size() + " devices");
+        Log.d(LOG_TAG, "There are " + groupOwners.size() + " group owners of " + devices.size() + " devices");
 
         // Notify activity to update nearby device list
-        notifyActivityUpdateDeviceList();
+        notifyActivityUpdateGroupOwnerList();
     }
 
     // implement WifiP2pManager.ActionListener
@@ -189,6 +202,10 @@ public class WifiP2pService extends Service
             case IDLE:
                 // From discoverNearbyDevices()
                 // Do nothing. WIFI_P2P_PEERS_CHANGED_ACTION will take over.
+                break;
+            case CREATING:
+                // From createGroup()
+                // Do nothing. WIFI_P2P_CONNECTION_CHANGED_ACTION should be received soon.
                 break;
             case REJECTING:
                 // From rejectClient()
@@ -265,6 +282,10 @@ public class WifiP2pService extends Service
                 // From discoverNearbyDevices()
                 Toast.makeText(WifiP2pService.this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
                 break;
+            case CREATING:
+                // From createGroup()
+                Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
+                break;
             case REJECTING:
                 // From rejectClient()
                 Toast.makeText(WifiP2pService.this, R.string.please_the_client_connect_again, Toast.LENGTH_SHORT).show();
@@ -322,6 +343,10 @@ public class WifiP2pService extends Service
             case SEARCHING:
             case IDLE:
                 // From discoverNearbyDevices()
+                Toast.makeText(WifiP2pService.this, R.string.please_reboot, Toast.LENGTH_SHORT).show();
+                break;
+            case CREATING:
+                // From createGroup()
                 Toast.makeText(WifiP2pService.this, R.string.please_reboot, Toast.LENGTH_SHORT).show();
                 break;
             case REJECTING:
@@ -390,6 +415,10 @@ public class WifiP2pService extends Service
             case IDLE:
                 stopService();
                 break;
+            case CREATING:
+                // From createGroup()
+                Toast.makeText(WifiP2pService.this, R.string.please_wait_for_creating, Toast.LENGTH_SHORT).show();
+                break;
             case REJECTING:
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
                 Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
@@ -438,6 +467,7 @@ public class WifiP2pService extends Service
             case SEARCHING:
             case IDLE:
                 break;
+            case CREATING:
             case REJECTING:
             case SERVER:
             case SERVER_DISCONNECTING:
@@ -469,6 +499,7 @@ public class WifiP2pService extends Service
                 break;
             case SEARCHING:
             case IDLE:
+            case CREATING:
             case REJECTING:
             case SERVER:
             case SERVER_DISCONNECTING:
@@ -485,6 +516,43 @@ public class WifiP2pService extends Service
                 discoverNearbyDevices();
                 break;
             case DISCONNECTING:
+            case STOPPING:
+            case STOPPED:
+                Toast.makeText(this, R.string.please_restart_app, Toast.LENGTH_SHORT).show();
+                break;
+        }
+    }
+
+    // After receiving an intent with a "CREATE" action
+    private void onActionCreate() {
+        switch (currentState) {
+            case INITIALIZING:
+                Toast.makeText(this, R.string.please_wait_for_initializing, Toast.LENGTH_SHORT).show();
+                break;
+            case SEARCHING:
+            case IDLE:
+                createGroup();
+                break;
+            case CREATING:
+                break;
+            case REJECTING:
+                Toast.makeText(this, R.string.please_try_later, Toast.LENGTH_SHORT).show();
+                break;
+            case SERVER:
+                break;
+            case SERVER_DISCONNECTING:
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
+                break;
+            case CONNECTING:
+            case CANCELING:
+            case RECONNECTING:
+            case REGISTERING:
+            case CONNECTED:
+                Toast.makeText(this, R.string.please_stop_first, Toast.LENGTH_SHORT).show();
+                break;
+            case DISCONNECTING:
+                Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
+                break;
             case STOPPING:
             case STOPPED:
                 Toast.makeText(this, R.string.please_restart_app, Toast.LENGTH_SHORT).show();
@@ -544,9 +612,15 @@ public class WifiP2pService extends Service
     }
 
     // Update UI functions -----------------------------------------------------------------------
+    // Notify the activity to update group owner device list
+    private void notifyActivityUpdateGroupOwnerList() {
+        Intent intent = new Intent(UPDATE_GROUP_OWNERS_ACTION);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
     // Notify the activity to update device list
-    private void notifyActivityUpdateDeviceList() {
-        Intent intent = new Intent(UPDATE_NEARBY_DEVICES_ACTION);
+    private void notifyActivityUpdateClientList() {
+        Intent intent = new Intent(UPDATE_CLIENT_DEVICES_ACTION);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
@@ -691,7 +765,18 @@ public class WifiP2pService extends Service
     }
 
     // Part 4: Become a server -------------------------------------------------------------------
-    // Be connected by the first client
+    /**
+     * Create a group actively
+     */
+    private void createGroup() {
+        changeState(WifiP2pState.CREATING);
+        wifiP2pManager.createGroup(wifiP2pChannel, this);
+    }
+
+    /**
+     * Be connected by the first client or actively create a group
+     * @param groupInfo
+     */
     private void beConnectedFirst(WifiP2pGroup groupInfo) {
         updateClientList(groupInfo);
         if (!isConnected) {
@@ -708,7 +793,6 @@ public class WifiP2pService extends Service
                 rejectClient();
             } else {
                 // I'm the group owner
-                clearRememberedDevicesStep1();
                 changeState(WifiP2pState.SERVER);
                 discoverNearbyDevices();
             }
@@ -780,6 +864,7 @@ public class WifiP2pService extends Service
                 break;
             case SEARCHING:
             case IDLE:
+            case CREATING:
                 beConnectedFirst(groupInfo);
                 break;
             case REJECTING:
@@ -890,14 +975,14 @@ public class WifiP2pService extends Service
         // Replace the list by new list
         clientDevices = newClientDevices;
         // Update activity
-        notifyActivityUpdateDeviceList();
+        notifyActivityUpdateClientList();
     }
 
     // Clear client list if all clients disconnected
     private void clearClientList() {
         // Clear the listView in the activity
         clientDevices.clear();
-        notifyActivityUpdateDeviceList();
+        notifyActivityUpdateGroupOwnerList();
         // Clear all audio streams and stop playing audio
         audioTransceiver.clearStreams();
     }
@@ -923,7 +1008,7 @@ public class WifiP2pService extends Service
      * It's called only when this is a client
      */
     private void updateTargetStatus() {
-        for (HashMap<String, String> device : nearbyDevices) {
+        for (HashMap<String, String> device : groupOwners) {
             if (device.get(MAP_ID_DEVICE_NAME).equals(wifiP2pTargetDeviceName)) {
                 // Change device status
                 try {
@@ -936,7 +1021,7 @@ public class WifiP2pService extends Service
                         status = status.replaceFirst("^\\w+\\s", "Available" + " ");
                     }
                     device.put(MAP_ID_STATUS, status);
-                    notifyActivityUpdateDeviceList();
+                    notifyActivityUpdateGroupOwnerList();
                 } catch (Exception e) {
                     // String.replaceFirst() may throw exceptions
                     e.printStackTrace();
@@ -951,7 +1036,7 @@ public class WifiP2pService extends Service
     // When the command succeeds, onSuccess() will be called
     private void connectTarget() {
         // Find MAC address by device name
-        for (HashMap<String, String> a : nearbyDevices) {
+        for (HashMap<String, String> a : groupOwners) {
             String name = a.get(MAP_ID_DEVICE_NAME);
             if (name.equals(wifiP2pTargetDeviceName)) {
                 wifiP2pTargetDeviceMac = a.get(MAP_ID_MAC);
@@ -1049,8 +1134,6 @@ public class WifiP2pService extends Service
         if (!isConnected) {
             // Stop playing the audio stream
             audioTransceiver.removeStream(wifiP2pTargetDeviceMac);
-            // Clear remembered group
-            clearRememberedDevicesStep1();
             // Change state
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
@@ -1058,9 +1141,11 @@ public class WifiP2pService extends Service
     }
 
     // Step 7: Clear remembered Wi-Fi direct group------------------------------------------------
-    // Clear remembered devices because
-    // 1. the new group created by a remembered device won't show in discovering services
-    // 2. The group owner won't change even if the other device create the group
+    /**
+     * Clear remembered devices because
+     * 1. the new group created by a remembered device won't show in discovering services
+     * 2. The group owner won't change even if the other device is connected passively
+     */
     public void clearRememberedDevicesStep1() {
         Class PersistentGroupInfoListener;   // WifiP2pManager.PersistentGroupInfoListener
         Method requestPersistentGroupInfo;   // WifiP2pManager.requestPersistentGroupInfo()
@@ -1109,7 +1194,12 @@ public class WifiP2pService extends Service
         Log.d(LOG_TAG, "Request remembered Wi-Fi direct groups");
     }
 
-    // parm is WifiP2pGroupList
+    /**
+     * The step 2 to clear all remembered Wi-Fi P2P groups.
+     * It's called by {@link #clearRememberedDevicesStep1()}.
+     * Programmer should not call this function directly.
+     * @param parm is a WifiP2pGroupList
+     */
     public void clearRememberedDevicesStep2(Object parm) {
         Class WifiP2pGroupList;              // android.net.wifi.p2p.WifiP2pGroupList
         final Method deletePersistentGroup;        // WifiP2pManager.deletePersistentGroup()
@@ -1169,8 +1259,132 @@ public class WifiP2pService extends Service
                 Log.d(LOG_TAG, "Delete group " + String.valueOf(netId));
                 deletePersistentGroup.invoke(wifiP2pManager, wifiP2pChannel, netId, actionListener);
             }
+            Log.d(LOG_TAG, "---------------------------------------------");
         } catch (Exception e) {
             Log.e(LOG_TAG, "Bug! getNetworkId() or deletePersistentGroup() failed because " + e.toString());
+        }
+    }
+
+    /**
+     * Dump all remembered groups in Log
+     */
+    public void dumpRememberedDevicesStep1() {
+        Class PersistentGroupInfoListener;   // WifiP2pManager.PersistentGroupInfoListener
+        Method requestPersistentGroupInfo;   // WifiP2pManager.requestPersistentGroupInfo()
+        Object persistentGroupInfoListener;
+        // Get hidden object through Java reflection
+        try {
+            PersistentGroupInfoListener = Class.forName("android.net.wifi.p2p.WifiP2pManager$PersistentGroupInfoListener");
+        } catch (ClassNotFoundException e) {
+            Log.e(LOG_TAG, "Bug! Interface WifiP2pManager.PersistentGroupInfoListener not found, " + e.toString());
+            return;
+        }
+        // Get hidden method through Java reflection
+        try {
+            requestPersistentGroupInfo = WifiP2pManager.class.getMethod(
+                    "requestPersistentGroupInfo",
+                    WifiP2pManager.Channel.class,
+                    PersistentGroupInfoListener);
+        } catch (NoSuchMethodException e) {
+            Log.e(LOG_TAG, "Bug! Method WifiP2pManager.requestPersistentGroupInfo() not found");
+            return;
+        }
+        // Implement hidden interface through dynamic proxies
+        try {
+            persistentGroupInfoListener = Proxy.newProxyInstance(
+                    PersistentGroupInfoListener.getClassLoader(),
+                    new Class<?>[]{PersistentGroupInfoListener},
+                    new InvocationHandler() {
+                        @Override
+                        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                            if (method.getName().equals("onPersistentGroupInfoAvailable") && args != null) {
+                                dumpRememberedDevicesStep2(args[0]);
+                            }
+                            return null;
+                        }
+                    });
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Bug! onPersistentGroupInfoAvailable() " + e.toString());
+            return;
+        }
+        // Request remembered groups. dumpRememberedDevicesStep2() will be called
+        try {
+            requestPersistentGroupInfo.invoke(wifiP2pManager, wifiP2pChannel, persistentGroupInfoListener);
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Bug! requestPersistentGroupInfo() failed because " + e.toString());
+        }
+        Log.d(LOG_TAG, "Request remembered Wi-Fi direct groups");
+    }
+
+    /**
+     * The second step to dump all remembered group in Log.
+     * It's called by {@link #dumpRememberedDevicesStep1()}.
+     * Programmer should not call this function directly.
+     * @param parm is a WifiP2pGroupList
+     */
+    public void dumpRememberedDevicesStep2(Object parm) {
+        Class WifiP2pGroupList;              // android.net.wifi.p2p.WifiP2pGroupList
+        Method getGroupList;                 // WifiP2pGroupList.getGroupList()
+        final Method getNetworkId;                 // WifiP2pGroup.getNetworkId()
+
+        // Get hidden object through Java reflection
+        try {
+            WifiP2pGroupList = Class.forName("android.net.wifi.p2p.WifiP2pGroupList");
+        } catch (ClassNotFoundException e) {
+            Log.e(LOG_TAG, "Bug! Class WifiP2pGroupList not found");
+            return;
+        }
+        // Get hidden method through Java reflection
+        try {
+            getGroupList = WifiP2pGroupList.getMethod("getGroupList");
+        } catch (NoSuchMethodException e) {
+            Log.e(LOG_TAG, "Bug! Method WifiP2pGroupList.getGroupList() not found");
+            return;
+        }
+        // Get hidden method through Java reflection
+        try {
+            getNetworkId = WifiP2pGroup.class.getMethod("getNetworkId");
+        } catch (NoSuchMethodException e) {
+            Log.e(LOG_TAG, "Bug! Method WifiP2pGroup.getNetworkId() not found");
+            return;
+        }
+
+        // Log all remembered Wi-Fi direct groups
+        try {
+            Collection<WifiP2pGroup> wifiP2pGroupList = (Collection<WifiP2pGroup>) getGroupList.invoke(parm);
+            for (WifiP2pGroup group : wifiP2pGroupList) {
+                int netId = (int) getNetworkId.invoke(group);
+                Log.d(LOG_TAG, "Show group " + String.valueOf(netId) + "---------------------------------------------");
+                logWifiP2pGroup(group);
+            }
+            Log.d(LOG_TAG, "---------------------------------------------");
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Bug! getNetworkId() or deletePersistentGroup() failed because " + e.toString());
+        }
+    }
+
+    /**
+     * Log a Wi-Fi P2P group
+     * @param wifiP2pGroup
+     */
+    private void logWifiP2pGroup(WifiP2pGroup wifiP2pGroup) {
+        Log.d(LOG_TAG, "SSID: " + wifiP2pGroup.getNetworkName());
+        String passphrase = wifiP2pGroup.getPassphrase();
+        if (passphrase == null) {
+            Log.d(LOG_TAG, "Passphrase is null");
+        } else {
+            Log.d(LOG_TAG, "Passphrase: " + passphrase);
+        }
+        Log.d(LOG_TAG, "Interface: " + wifiP2pGroup.getInterface());
+        if (wifiP2pGroup.isGroupOwner()) {
+            Log.d(LOG_TAG, "Is group owner");
+        } else {
+            Log.d(LOG_TAG, "Not group owner");
+        }
+        WifiP2pDevice wifiP2pDevice = wifiP2pGroup.getOwner();
+        Log.d(LOG_TAG, "Owner " + wifiP2pDevice.deviceName + " " + wifiP2pDevice.deviceAddress);
+        for (WifiP2pDevice client : wifiP2pGroup.getClientList()) {
+            Log.d(LOG_TAG, "Client " + client.deviceName + " " + wifiP2pDevice.deviceAddress);
         }
     }
 
@@ -1209,8 +1423,8 @@ public class WifiP2pService extends Service
         return currentState;
     }
 
-    public ArrayList<HashMap<String, String>> getNearbyDevices() {
-        return nearbyDevices;
+    public ArrayList<HashMap<String, String>> getGroupOwners() {
+        return groupOwners;
     }
 
     public ArrayList<HashMap<String, String>> getClients() {
