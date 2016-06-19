@@ -28,10 +28,8 @@
     <string name="please_reboot">Please reboot</string>
     <string name="please_the_client_connect_again">Please the client connect again</string>
     <string name="please_input_the_right_port">Please input the right port</string>
-    <string name="please_wait_for_creating">Please wait for creating</string>
     <string name="please_wait_for_disconnecting">Please wait for disconnecting</string>
     <string name="please_wait_for_initializing">Please wait for initializing</string>
-    <string name="please_stop_first">Please stop first</string>
     <string name="please_turn_on_wifi">Please turn on Wi-Fi</string>
     <!-- PasswordFragment -->
     <string name="password">Password</string>
