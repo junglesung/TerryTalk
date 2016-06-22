@@ -116,13 +116,6 @@ public class WifiP2pFragment extends Fragment
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
-//            try {
-//                targetPort = Integer.parseInt(editTextPort.getText().toString());
-//            } catch (NumberFormatException e) {
-//                Log.e(LOG_TAG, "User input port is not an integer.");
-//                Toast.makeText(getActivity(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
-//                return;
-//            }
             // Change to another fragment for user to input port
             onPortRequirementListener.onPortRequirement();
         }
@@ -147,12 +140,13 @@ public class WifiP2pFragment extends Fragment
         swipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipeRefreshLayoutDevices);
         listViewDevices = (ListView)view.findViewById(R.id.listViewDevices);
         fabServer = (FloatingActionButton)view.findViewById(R.id.fabServer);
-        textViewName.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            }
-        });
+        // TODO: User can change name in the future
+//        textViewName.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+//            }
+//        });
         swipeRefreshLayout.setOnRefreshListener(this);
         listViewDevicesAdapter = new SimpleAdapter(getActivity(),
                                                    nearbyDevices,
@@ -185,6 +179,9 @@ public class WifiP2pFragment extends Fragment
                 return true;
             case R.id.menuItemShow:
                 serviceActionShow();
+                return true;
+            case R.id.menuItemClear:
+                serviceActionClear();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -422,15 +419,21 @@ public class WifiP2pFragment extends Fragment
         getActivity().startService(intent);
     }
 
+    private void serviceActionServer() {
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
+        intent.setAction(WifiP2pService.ACTION_SERVER);
+        getActivity().startService(intent);
+    }
+
     private void serviceActionShow() {
         Intent intent = new Intent(getActivity(), WifiP2pService.class);
         intent.setAction(WifiP2pService.ACTION_SHOW);
         getActivity().startService(intent);
     }
 
-    private void serviceActionServer() {
+    private void serviceActionClear() {
         Intent intent = new Intent(getActivity(), WifiP2pService.class);
-        intent.setAction(WifiP2pService.ACTION_SERVER);
+        intent.setAction(WifiP2pService.ACTION_CLEAR);
         getActivity().startService(intent);
     }
 

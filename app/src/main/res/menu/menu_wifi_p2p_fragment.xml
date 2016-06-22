@@ -5,7 +5,11 @@
           android:title="@string/stop"
           app:showAsAction="ifRoom" />
     <item android:id="@+id/menuItemShow"
-          android:title="Show"
+          android:title="@string/show"
           app:showAsAction="never"
-          android:visible="false" />
+          android:visible="true" />
+    <item android:id="@+id/menuItemClear"
+          android:title="@string/clear"
+          app:showAsAction="never"
+          android:visible="true" />
 </menu>

@@ -6,8 +6,9 @@
     <string name="colon">:</string>
     <string name="ip">IP</string>
     <string name="port">Port</string>
-    <string name="refresh">Refresh</string>
     <string name="stop">Stop</string>
+    <string name="show">Show</string>
+    <string name="clear">Clear</string>
     <string name="wifi_p2p_unsupported">WiFi P2P is not supported</string>
     <string name="wifi_p2p_busy">WiFi P2P is busy</string>
     <string name="wifi_p2p_error">WiFi P2P has error</string>
@@ -33,6 +34,9 @@
     <string name="please_wait_for_initializing">Please wait for initializing</string>
     <string name="please_stop_first">Please stop first</string>
     <string name="please_turn_on_wifi">Please turn on Wi-Fi</string>
+    <string name="please_turn_off_wifi_and_turn_on_again">Please turn off Wi-Fi and turn on again</string>
+    <string name="ask_client_to_connect_again">Ask client to connect again</string>
+    <string name="dont_connect_me_or_press_plus_button_to_be_a_speaker">Don\'t connect me. Or press + button to be a speaker</string>
     <!-- PasswordFragment -->
     <string name="password">Password</string>
     <string name="connect">Connect</string>

@@ -64,6 +64,7 @@ public class WifiP2pService extends Service
     public static final String ACTION_REFRESH = "com.vernonsung.testwifip2p.action.refresh";  // Refresh nearby device list
     public static final String ACTION_SERVER = "com.vernonsung.testwifip2p.action.server";  // Become a Wi-Fi direct server
     public static final String ACTION_SHOW = "com.vernonsung.testwifip2p.action.show";  // Show Wi-Fi direct remembered group in Log
+    public static final String ACTION_CLEAR = "com.vernonsung.testwifip2p.action.clear";  // Clear Wi-Fi direct remembered group
     public static final String INTENT_EXTRA_TARGET = "com.vernonsung.testwifip2p.TARGET";  // String. A parameter of ACTION_CONNECT
     public static final String INTENT_EXTRA_PORT = "com.vernonsung.testwifip2p.PORT";  // int. A parameter of ACTION_CONNECT
     // Local broadcast to send
@@ -144,6 +145,9 @@ public class WifiP2pService extends Service
             case ACTION_SHOW:
                 dumpRememberedDevicesStep1();
                 break;
+            case ACTION_CLEAR:
+                clearRememberedDevicesStep1();
+                break;
             default:
                 Log.e(LOG_TAG, "Unknown action " + intent.getAction());
                 break;
@@ -212,7 +216,7 @@ public class WifiP2pService extends Service
                 // Do nothing. WIFI_P2P_CONNECTION_CHANGED_ACTION should be received soon.
                 break;
             case SERVER:
-                // From beConnectedFirst()
+                // From beConnectedUnexpectedly()
                 // Do nothing. Wait for other clients to connect.
                 break;
             case SERVER_DISCONNECTING:
@@ -293,7 +297,7 @@ public class WifiP2pService extends Service
                 discoverNearbyDevices();
                 break;
             case SERVER:
-                // From beConnectedFirst()
+                // From beConnectedUnexpectedly()
                 Toast.makeText(WifiP2pService.this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
                 break;
             case SERVER_DISCONNECTING:
@@ -355,7 +359,7 @@ public class WifiP2pService extends Service
                 discoverNearbyDevices();
                 break;
             case SERVER:
-                // From beConnectedFirst()
+                // From beConnectedUnexpectedly()
                 // Do nothing. It's already discovering.
                 break;
             case SERVER_DISCONNECTING:
@@ -566,7 +570,7 @@ public class WifiP2pService extends Service
         int NOTIFICATION_ID = 1;
         // assign the song name to songName
         PendingIntent pi = PendingIntent.getActivity(this, 0,
-                new Intent(this, WifiP2pFragment.class),
+                new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
@@ -764,6 +768,27 @@ public class WifiP2pService extends Service
         // When the command succeeds, onPeersAvailable() will be called
     }
 
+    /**
+     * As a server, keep executing peer discovery when it's stopped so that other devices can find this server
+     * Otherwise, do nothing
+     * @param status WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED or WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED
+     */
+    public void peerDiscoveryChangedActionHandler(int status) {
+        switch (status) {
+            case WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED:
+                Log.d(LOG_TAG, "Nearby device discovery starts");
+                setPeerDiscoveryStopped(false);
+                break;
+            case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
+                Log.d(LOG_TAG, "Nearby device discovery stops");
+                setPeerDiscoveryStopped(true);
+                if (currentState == WifiP2pState.SERVER) {
+                    discoverNearbyDevices();
+                }
+                break;
+        }
+    }
+
     // Part 4: Become a server -------------------------------------------------------------------
     /**
      * Create a group actively
@@ -777,25 +802,31 @@ public class WifiP2pService extends Service
      * Be connected by the first client or actively create a group
      * @param groupInfo
      */
-    private void beConnectedFirst(WifiP2pGroup groupInfo) {
+    private void createGroupStep2(WifiP2pGroup groupInfo) {
         updateClientList(groupInfo);
         if (!isConnected) {
-            // Client found it should not be the group owner. So it disconnected.
-            clearRememberedDevicesStep1();
+            // Create group failed due to Android system error
+            Log.d(LOG_TAG, "Android system Wi-Fi direct service has error, please turn off Wi-Fi and turn on again.");
+            Toast.makeText(this, R.string.please_turn_off_wifi_and_turn_on_again, Toast.LENGTH_SHORT).show();
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
         } else {
-            // Make sure I'm the group owner.
-            if (!isGroupOwner) {
-                Log.d(LOG_TAG, "I should be the group owner. Clear remembered groups and disconnect");
-                // Clear remembered group so that I will be the group owner next time my group formed
-                clearRememberedDevicesStep1();
-                rejectClient();
-            } else {
-                // I'm the group owner
-                changeState(WifiP2pState.SERVER);
-                discoverNearbyDevices();
-            }
+            // Create group successfully
+            changeState(WifiP2pState.SERVER);
+            discoverNearbyDevices();
+        }
+    }
+
+    /**
+     * Be connected by the first client or actively create a group
+     * @param groupInfo
+     */
+    private void beConnectedUnexpectedly(WifiP2pGroup groupInfo) {
+        updateClientList(groupInfo);
+        if (isConnected) {
+            Log.d(LOG_TAG, "I'm not a server. Don't connect me.");
+            Toast.makeText(this, R.string.dont_connect_me_or_press_plus_button_to_be_a_speaker, Toast.LENGTH_SHORT).show();
+            rejectClient();
         }
     }
 
@@ -836,7 +867,7 @@ public class WifiP2pService extends Service
     private void serverDisconnected(WifiP2pGroup groupInfo) {
         updateClientList(groupInfo);
         if (!isConnected) {
-            // The last client left
+            // Wi-Fi direct group is removed
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
         }
@@ -864,8 +895,10 @@ public class WifiP2pService extends Service
                 break;
             case SEARCHING:
             case IDLE:
+                beConnectedUnexpectedly(groupInfo);
+                break;
             case CREATING:
-                beConnectedFirst(groupInfo);
+                createGroupStep2(groupInfo);
                 break;
             case REJECTING:
                 serverDisconnected(groupInfo);
@@ -1044,6 +1077,14 @@ public class WifiP2pService extends Service
             }
         }
 
+        // Check MAC address
+        if (wifiP2pTargetDeviceMac == null) {
+            Log.d(LOG_TAG, "Can't get server's MAC address. Maybe the server has left. Please refresh again.");
+            Toast.makeText(this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
+            discoverNearbyDevices();
+            return;
+        }
+
         // Setup connection configuration
         WifiP2pConfig wifiP2pConfig = new WifiP2pConfig();
         wifiP2pConfig.deviceAddress = wifiP2pTargetDeviceMac;
@@ -1070,7 +1111,8 @@ public class WifiP2pService extends Service
             Log.d(LOG_TAG, "Server detected I'm the group owner instead of itself. Clear remembered groups and disconnect");
             Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
             // Clear remembered group so that I won't be the group owner next time I connect to the server.
-            clearRememberedDevicesStep1();
+            // Vernon debug
+//            clearRememberedDevicesStep1();
             // Disconnect. User may manually connect again.
             changeState(WifiP2pState.IDLE);
             discoverNearbyDevices();
@@ -1080,7 +1122,8 @@ public class WifiP2pService extends Service
                 Log.d(LOG_TAG, "I should not be the group owner. Clear remembered groups and disconnect");
                 Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 // Clear remembered group so that I won't be the group owner next time I connect to the server.
-                clearRememberedDevicesStep1();
+                // Vernon debug
+//                clearRememberedDevicesStep1();
                 // Disconnect. User may manually connect again.
                 disconnectTarget();
             } else {  // isConnected == true
