@@ -16,7 +16,7 @@ import android.widget.Toast;
 /**
  * A {@link Fragment} for users to enter password.
  * Activities that contain this fragment must implement the
- * {@link PasswordFragment.OnFragmentInteractionListener} interface
+ * {@link OnConnectButtonClickedListener} interface
  * to handle interaction events.
  * Use the {@link PasswordFragment#newInstance} factory method to
  * create an instance of this fragment.
@@ -33,7 +33,7 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
     private String mParam1;
     private String mParam2;
 
-    private OnFragmentInteractionListener mListener;
+    private OnConnectButtonClickedListener mListener;
 
     // UI
     private TextView textViewPassword;
@@ -117,7 +117,7 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
         }
         // Password is a port number so it must be 1~65535
         if (password > 0 && password < 65536) {
-            mListener.onFragmentInteraction(password);
+            mListener.onConnectButtonClicked(password);
         } else {
             Log.d(LOG_TAG, "Invalid password " + s);
             Toast.makeText(getActivity(), R.string.invalid_password, Toast.LENGTH_SHORT).show();
@@ -127,11 +127,11 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (context instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) context;
+        if (context instanceof OnConnectButtonClickedListener) {
+            mListener = (OnConnectButtonClickedListener) context;
         } else {
             throw new RuntimeException(context.toString()
-                    + " must implement OnFragmentInteractionListener");
+                    + " must implement OnConnectButtonClickedListener");
         }
     }
 
@@ -142,11 +142,11 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        if (activity instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) activity;
+        if (activity instanceof OnConnectButtonClickedListener) {
+            mListener = (OnConnectButtonClickedListener) activity;
         } else {
             throw new RuntimeException(activity.toString()
-                    + " must implement OnFragmentInteractionListener");
+                    + " must implement OnConnectButtonClickedListener");
         }
     }
 
@@ -222,7 +222,7 @@ public class PasswordFragment extends Fragment implements View.OnClickListener {
      * "http://developer.android.com/training/basics/fragments/communicating.html"
      * >Communicating with Other Fragments</a> for more information.
      */
-    public interface OnFragmentInteractionListener {
-        void onFragmentInteraction(int password);
+    public interface OnConnectButtonClickedListener {
+        void onConnectButtonClicked(int password);
     }
 }

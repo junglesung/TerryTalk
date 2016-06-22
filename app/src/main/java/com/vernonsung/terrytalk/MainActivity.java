@@ -7,7 +7,7 @@ import android.os.Bundle;
  * The main activity that is first shown when the APP starts
  */
 public class MainActivity extends AppCompatActivity
-        implements PasswordFragment.OnFragmentInteractionListener,
+        implements PasswordFragment.OnConnectButtonClickedListener,
                    WifiP2pFragment.OnPortRequirementListener {
     private static final String LOG_TAG = "testtest";
 
@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity
 
     // Called from PasswordFragment when the user finish entering the password
     @Override
-    public void onFragmentInteraction(int password) {
+    public void onConnectButtonClicked(int password) {
         // Change to WifiP2pFragment and connect to the server
         getFragmentManager().popBackStackImmediate();
         WifiP2pFragment wifiP2pFragment = (WifiP2pFragment)getFragmentManager().findFragmentById(R.id.frameMain);

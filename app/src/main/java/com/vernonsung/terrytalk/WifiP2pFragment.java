@@ -187,7 +187,7 @@ public class WifiP2pFragment extends Fragment
             onPortRequirementListener = (OnPortRequirementListener) context;
         } else {
             throw new RuntimeException(context.toString()
-                    + " must implement OnFragmentInteractionListener");
+                    + " must implement OnPortRequirementListener");
         }
     }
 
@@ -202,7 +202,7 @@ public class WifiP2pFragment extends Fragment
             onPortRequirementListener = (OnPortRequirementListener) activity;
         } else {
             throw new RuntimeException(activity.toString()
-                    + " must implement OnFragmentInteractionListener");
+                    + " must implement OnPortRequirementListener");
         }
     }
 
@@ -411,7 +411,7 @@ public class WifiP2pFragment extends Fragment
     }
 
     public void setPort(int port) {
-        String s = "Password: ";
+        String s = getString(R.string.password) + ": ";
         if (port != 0) {
             s += String.valueOf(port);
         }
@@ -428,13 +428,13 @@ public class WifiP2pFragment extends Fragment
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case REJECTING:
-            case SERVER:
-            case SERVER_DISCONNECTING:
+            case TEACHER:
+            case TEACHER_DISCONNECTING:
             case CONNECTING:
             case CANCELING:
             case RECONNECTING:
             case REGISTERING:
-            case CONNECTED:
+            case STUDENT:
             case DISCONNECTING:
                 listViewDevices.setOnItemClickListener(null);
                 break;
@@ -446,7 +446,47 @@ public class WifiP2pFragment extends Fragment
                 getActivity().finish();
                 break;
         }
-        textViewState.setText(state.toString());
+        textViewState.setText(translateState(state));
+    }
+
+    /**
+     * Translate state to human language
+     * @param state
+     * @return Name of the state
+     */
+    private String translateState(WifiP2pService.WifiP2pState state) {
+        switch (state) {
+            case INITIALIZING:
+                return getString(R.string.initializing);
+            case SEARCHING:
+                return getString(R.string.searching);
+            case IDLE:
+                return getString(R.string.idle);
+            case REJECTING:
+                return getString(R.string.rejecting);
+            case TEACHER:
+                return getString(R.string.teacher);
+            case TEACHER_DISCONNECTING:
+                return getString(R.string.teacher_disconnecting);
+            case CONNECTING:
+                return getString(R.string.connecting);
+            case CANCELING:
+                return getString(R.string.canceling);
+            case RECONNECTING:
+                return getString(R.string.reconnecting);
+            case REGISTERING:
+                return getString(R.string.registering);
+            case STUDENT:
+                return getString(R.string.student);
+            case DISCONNECTING:
+                return getString(R.string.disconnecting);
+            case STOPPING:
+                return getString(R.string.stopping);
+            case STOPPED:
+                return getString(R.string.stopped);
+        }
+        Log.e(LOG_TAG, "Unhandled state " + state.toString());
+        return getString(R.string.unknown);
     }
 
     private void updateNearByDevicesFromServiceTaskHandler() {

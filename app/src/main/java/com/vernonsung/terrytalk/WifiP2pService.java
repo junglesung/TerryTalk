@@ -50,8 +50,8 @@ public class WifiP2pService extends Service
 
     public enum WifiP2pState {
         INITIALIZING, SEARCHING, IDLE,
-        REJECTING, SERVER, SERVER_DISCONNECTING,
-        CONNECTING, CANCELING, RECONNECTING, REGISTERING, CONNECTED, DISCONNECTING,
+        REJECTING, TEACHER, TEACHER_DISCONNECTING,
+        CONNECTING, CANCELING, RECONNECTING, REGISTERING, STUDENT, DISCONNECTING,
         STOPPING, STOPPED
     }
 
@@ -194,11 +194,11 @@ public class WifiP2pService extends Service
                 // From rejectClient()
                 // Do nothing. WIFI_P2P_CONNECTION_CHANGED_ACTION should be received soon.
                 break;
-            case SERVER:
+            case TEACHER:
                 // From beConnectedFirst()
                 // Do nothing. Wait for other clients to connect.
                 break;
-            case SERVER_DISCONNECTING:
+            case TEACHER_DISCONNECTING:
                 // From dismissServer()
                 // Do nothing. WIFI_P2P_CONNECTION_CHANGED_ACTION should be received soon.
                 break;
@@ -216,7 +216,7 @@ public class WifiP2pService extends Service
             case REGISTERING:
                 Log.e(LOG_TAG, "Never here. OnSuccess() REGISTERING");
                 break;
-            case CONNECTED:
+            case STUDENT:
                 // From no-where
                 break;
             case DISCONNECTING:
@@ -268,17 +268,17 @@ public class WifiP2pService extends Service
             case REJECTING:
                 // From rejectClient()
                 Toast.makeText(WifiP2pService.this, R.string.please_the_client_connect_again, Toast.LENGTH_SHORT).show();
-                changeState(WifiP2pState.SERVER);
+                changeState(WifiP2pState.TEACHER);
                 discoverNearbyDevices();
                 break;
-            case SERVER:
+            case TEACHER:
                 // From beConnectedFirst()
                 Toast.makeText(WifiP2pService.this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
                 break;
-            case SERVER_DISCONNECTING:
+            case TEACHER_DISCONNECTING:
                 // From dismissServer()
                 Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
-                changeState(WifiP2pState.SERVER);
+                changeState(WifiP2pState.TEACHER);
                 break;
             case CONNECTING:
                 // From connectTarget()
@@ -295,12 +295,12 @@ public class WifiP2pService extends Service
             case REGISTERING:
                 Log.e(LOG_TAG, "Never here. OnBusy() REGISTERING");
                 break;
-            case CONNECTED:
+            case STUDENT:
                 // From no-where
                 break;
             case DISCONNECTING:
                 // From disconnectTarget()
-                changeState(WifiP2pState.CONNECTED);
+                changeState(WifiP2pState.STUDENT);
                 Toast.makeText(WifiP2pService.this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
             case STOPPING:
@@ -329,11 +329,11 @@ public class WifiP2pService extends Service
                 changeState(WifiP2pState.IDLE);
                 discoverNearbyDevices();
                 break;
-            case SERVER:
+            case TEACHER:
                 // From beConnectedFirst()
                 // Do nothing. It's already discovering.
                 break;
-            case SERVER_DISCONNECTING:
+            case TEACHER_DISCONNECTING:
                 // From dismissServer(). It's already disconnected.
                 changeState(WifiP2pState.IDLE);
                 discoverNearbyDevices();
@@ -354,7 +354,7 @@ public class WifiP2pService extends Service
             case REGISTERING:
                 Log.e(LOG_TAG, "Never here. OnError() REGISTERING");
                 break;
-            case CONNECTED:
+            case STUDENT:
                 // From no-where
                 break;
             case DISCONNECTING:
@@ -394,10 +394,10 @@ public class WifiP2pService extends Service
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
                 Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
-            case SERVER:
+            case TEACHER:
                 dismissServer();
                 break;
-            case SERVER_DISCONNECTING:
+            case TEACHER_DISCONNECTING:
                 // Do nothing. Wait for WIFI_P2P_CONNECTION_CHANGED_ACTION to report disconnected
                 Toast.makeText(this, R.string.please_wait_for_disconnecting, Toast.LENGTH_SHORT).show();
                 break;
@@ -408,7 +408,7 @@ public class WifiP2pService extends Service
                 // TODO: stop socket client async task in the future
                 Toast.makeText(this, R.string.please_try_again, Toast.LENGTH_SHORT).show();
                 break;
-            case CONNECTED:
+            case STUDENT:
                 disconnectTarget();
                 break;
             case CANCELING:
@@ -430,7 +430,7 @@ public class WifiP2pService extends Service
     }
 
     // After receiving an intent with a "CONNECT" action
-    // TODO: Implement changing target when CONNECTING, RECONNECTING, CONNECTED
+    // TODO: Implement changing target when CONNECTING, RECONNECTING, STUDENT
     private void onActionConnect(Intent intent) {
         switch (currentState) {
             case INITIALIZING:
@@ -439,13 +439,13 @@ public class WifiP2pService extends Service
             case IDLE:
                 break;
             case REJECTING:
-            case SERVER:
-            case SERVER_DISCONNECTING:
+            case TEACHER:
+            case TEACHER_DISCONNECTING:
             case CONNECTING:
             case CANCELING:
             case RECONNECTING:
             case REGISTERING:
-            case CONNECTED:
+            case STUDENT:
             case DISCONNECTING:
             case STOPPING:
             case STOPPED:
@@ -470,8 +470,8 @@ public class WifiP2pService extends Service
             case SEARCHING:
             case IDLE:
             case REJECTING:
-            case SERVER:
-            case SERVER_DISCONNECTING:
+            case TEACHER:
+            case TEACHER_DISCONNECTING:
                 discoverNearbyDevices();
                 break;
             case CONNECTING:
@@ -481,7 +481,7 @@ public class WifiP2pService extends Service
                 Toast.makeText(this, R.string.please_try_later, Toast.LENGTH_SHORT).show();
                 break;
             case REGISTERING:
-            case CONNECTED:
+            case STUDENT:
                 discoverNearbyDevices();
                 break;
             case DISCONNECTING:
@@ -704,7 +704,7 @@ public class WifiP2pService extends Service
             case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
                 Log.d(LOG_TAG, "Nearby device discovery stops");
                 setPeerDiscoveryStopped(true);
-                if (currentState == WifiP2pState.SERVER) {
+                if (currentState == WifiP2pState.TEACHER) {
                     discoverNearbyDevices();
                 }
                 break;
@@ -730,7 +730,7 @@ public class WifiP2pService extends Service
             } else {
                 // I'm the group owner
                 clearRememberedDevicesStep1();
-                changeState(WifiP2pState.SERVER);
+                changeState(WifiP2pState.TEACHER);
                 discoverNearbyDevices();
             }
         }
@@ -762,7 +762,7 @@ public class WifiP2pService extends Service
     // Server disconnects so that all client will disconnect
     private void dismissServer() {
         if (isConnected) {
-            changeState(WifiP2pState.SERVER_DISCONNECTING);
+            changeState(WifiP2pState.TEACHER_DISCONNECTING);
             wifiP2pManager.removeGroup(wifiP2pChannel, this);
         } else {
             changeState(WifiP2pState.IDLE);
@@ -806,10 +806,10 @@ public class WifiP2pService extends Service
             case REJECTING:
                 serverDisconnected(groupInfo);
                 break;
-            case SERVER:
+            case TEACHER:
                 beConnectedMore(groupInfo);
                 break;
-            case SERVER_DISCONNECTING:
+            case TEACHER_DISCONNECTING:
                 serverDisconnected(groupInfo);
                 break;
             case CONNECTING:
@@ -818,7 +818,7 @@ public class WifiP2pService extends Service
                 break;
             case RECONNECTING:
                 break;
-            case CONNECTED:
+            case STUDENT:
                 connectionEnd();
                 break;
             case DISCONNECTING:
@@ -1050,7 +1050,7 @@ public class WifiP2pService extends Service
         } else {
             // Play the audio stream
             audioTransceiver.addClientStream(wifiP2pTargetDeviceMac, audioStream);
-            changeState(WifiP2pState.CONNECTED);
+            changeState(WifiP2pState.STUDENT);
         }
     }
 
