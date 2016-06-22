@@ -16,10 +16,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -31,8 +29,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -117,13 +113,6 @@ public class WifiP2pFragment extends Fragment
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             targetName = nearbyDevices.get(position).get(WifiP2pService.MAP_ID_DEVICE_NAME);
-//            try {
-//                targetPort = Integer.parseInt(editTextPort.getText().toString());
-//            } catch (NumberFormatException e) {
-//                Log.e(LOG_TAG, "User input port is not an integer.");
-//                Toast.makeText(getActivity(), R.string.please_input_the_right_port, Toast.LENGTH_SHORT).show();
-//                return;
-//            }
             // Change to another fragment for user to input port
             onPortRequirementListener.onPortRequirement();
         }
@@ -147,12 +136,13 @@ public class WifiP2pFragment extends Fragment
         textViewPort = (TextView)view.findViewById(R.id.textViewPort);
         swipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipeRefreshLayoutDevices);
         listViewDevices = (ListView)view.findViewById(R.id.listViewDevices);
-        textViewName.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            }
-        });
+        // TODO: User can change name in the future
+//        textViewName.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+//            }
+//        });
         swipeRefreshLayout.setOnRefreshListener(this);
         listViewDevicesAdapter = new SimpleAdapter(getActivity(),
                                                    nearbyDevices,
@@ -378,10 +368,7 @@ public class WifiP2pFragment extends Fragment
         intent.setAction(WifiP2pService.ACTION_START);
         getActivity().startService(intent);
         // Update data from the service
-        updateStateFromService();
-        updateIpFromService();
-        updatePortFromService();
-        updateNearByDevicesFromService();
+        updateAllFromService();
     }
 
     private void serviceActionConnect() {
@@ -424,11 +411,11 @@ public class WifiP2pFragment extends Fragment
     }
 
     public void setPort(int port) {
-        if (port == 0) {
-            textViewPort.setText("");
-        } else {
-            textViewPort.setText(String.valueOf(port));
+        String s = "Password: ";
+        if (port != 0) {
+            s += String.valueOf(port);
         }
+        textViewPort.setText(s);
     }
 
     public void setState(WifiP2pService.WifiP2pState state) {
@@ -441,29 +428,13 @@ public class WifiP2pFragment extends Fragment
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case REJECTING:
-                listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
-                break;
             case SERVER:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case SERVER_DISCONNECTING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case CONNECTING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case CANCELING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case RECONNECTING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case REGISTERING:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case CONNECTED:
-                listViewDevices.setOnItemClickListener(null);
-                break;
             case DISCONNECTING:
                 listViewDevices.setOnItemClickListener(null);
                 break;
@@ -596,10 +567,10 @@ public class WifiP2pFragment extends Fragment
     }
 
     private void updateAllFromService() {
-        updateNearByDevicesFromService();
         updateIpFromService();
         updatePortFromService();
         updateStateFromService();
+        updateNearByDevicesFromService();
     }
 
     private void bindWifiP2pService() {

@@ -85,17 +85,7 @@ public class WifiP2pReceiver extends BroadcastReceiver {
 
     // Notify if nearby device discovery starts or stops
     private void wifiP2pDiscoveryChangedActionHandler(Intent intent) {
-        // Log only
         int status = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, 0);
-        switch (status) {
-            case WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED:
-                Log.d(LOG_TAG, "Nearby device discovery starts");
-                wifiP2pService.setPeerDiscoveryStopped(false);
-                break;
-            case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
-                Log.d(LOG_TAG, "Nearby device discovery stops");
-                wifiP2pService.setPeerDiscoveryStopped(true);
-                break;
-        }
+        wifiP2pService.peerDiscoveryChangedActionHandler(status);
     }
 }

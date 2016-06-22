@@ -498,7 +498,7 @@ public class WifiP2pService extends Service
         int NOTIFICATION_ID = 1;
         // assign the song name to songName
         PendingIntent pi = PendingIntent.getActivity(this, 0,
-                new Intent(this, WifiP2pFragment.class),
+                new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this)
                 .setContentTitle(getString(R.string.app_name))
@@ -688,6 +688,27 @@ public class WifiP2pService extends Service
     public void discoverNearbyDevicesStep2() {
         wifiP2pManager.requestPeers(wifiP2pChannel, this);
         // When the command succeeds, onPeersAvailable() will be called
+    }
+
+    /**
+     * As a server, keep executing peer discovery when it's stopped so that other devices can find this server
+     * Otherwise, do nothing
+     * @param status WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED or WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED
+     */
+    public void peerDiscoveryChangedActionHandler(int status) {
+        switch (status) {
+            case WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED:
+                Log.d(LOG_TAG, "Nearby device discovery starts");
+                setPeerDiscoveryStopped(false);
+                break;
+            case WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED:
+                Log.d(LOG_TAG, "Nearby device discovery stops");
+                setPeerDiscoveryStopped(true);
+                if (currentState == WifiP2pState.SERVER) {
+                    discoverNearbyDevices();
+                }
+                break;
+        }
     }
 
     // Part 4: Become a server -------------------------------------------------------------------
@@ -959,6 +980,14 @@ public class WifiP2pService extends Service
             }
         }
 
+        // Check MAC address
+        if (wifiP2pTargetDeviceMac == null) {
+            Log.d(LOG_TAG, "Can't get server's MAC address. Maybe the server has left. Please refresh again.");
+            Toast.makeText(this, R.string.please_refresh_again, Toast.LENGTH_SHORT).show();
+            discoverNearbyDevices();
+            return;
+        }
+
         // Setup connection configuration
         WifiP2pConfig wifiP2pConfig = new WifiP2pConfig();
         wifiP2pConfig.deviceAddress = wifiP2pTargetDeviceMac;
@@ -1058,9 +1087,11 @@ public class WifiP2pService extends Service
     }
 
     // Step 7: Clear remembered Wi-Fi direct group------------------------------------------------
-    // Clear remembered devices because
-    // 1. the new group created by a remembered device won't show in discovering services
-    // 2. The group owner won't change even if the other device create the group
+    /**
+     * Clear remembered devices because
+     * 1. the new group created by a remembered device won't show in discovering services
+     * 2. The group owner won't change even if the other device is connected passively
+     */
     public void clearRememberedDevicesStep1() {
         Class PersistentGroupInfoListener;   // WifiP2pManager.PersistentGroupInfoListener
         Method requestPersistentGroupInfo;   // WifiP2pManager.requestPersistentGroupInfo()
@@ -1109,7 +1140,12 @@ public class WifiP2pService extends Service
         Log.d(LOG_TAG, "Request remembered Wi-Fi direct groups");
     }
 
-    // parm is WifiP2pGroupList
+    /**
+     * The step 2 to clear all remembered Wi-Fi P2P groups.
+     * It's called by {@link #clearRememberedDevicesStep1()}.
+     * Programmer should not call this function directly.
+     * @param parm is a WifiP2pGroupList
+     */
     public void clearRememberedDevicesStep2(Object parm) {
         Class WifiP2pGroupList;              // android.net.wifi.p2p.WifiP2pGroupList
         final Method deletePersistentGroup;        // WifiP2pManager.deletePersistentGroup()

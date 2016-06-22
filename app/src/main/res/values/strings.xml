@@ -6,7 +6,6 @@
     <string name="colon">:</string>
     <string name="ip">IP</string>
     <string name="port">Port</string>
-    <string name="refresh">Refresh</string>
     <string name="stop">Stop</string>
     <string name="wifi_p2p_unsupported">WiFi P2P is not supported</string>
     <string name="wifi_p2p_busy">WiFi P2P is busy</string>
