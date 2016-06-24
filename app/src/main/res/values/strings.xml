@@ -43,6 +43,7 @@
     <string name="please_wait_for_disconnecting">Please wait for disconnecting</string>
     <string name="please_wait_for_initializing">Please wait for initializing</string>
     <string name="please_turn_on_wifi">Please turn on Wi-Fi</string>
+    <string name="please_rename_when_idle">Please rename when idle</string>
     <!-- PasswordFragment -->
     <string name="password">Password</string>
     <string name="connect">Connect</string>

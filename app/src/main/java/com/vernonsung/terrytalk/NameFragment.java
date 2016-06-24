@@ -7,6 +7,7 @@ import android.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -20,6 +21,20 @@ import android.widget.EditText;
  * create an instance of this fragment.
  */
 public class NameFragment extends Fragment implements View.OnClickListener {
+    /**
+     * This interface must be implemented by activities that contain this
+     * fragment to allow an interaction in this fragment to be communicated
+     * to the activity and potentially other fragments contained in that
+     * activity.
+     * <p/>
+     * See the Android Training lesson <a href=
+     * "http://developer.android.com/training/basics/fragments/communicating.html"
+     * >Communicating with Other Fragments</a> for more information.
+     */
+    public interface OnChangeWifiP2pNameListener {
+        void onChangeWifiP2pName(String name);
+    }
+
     // the fragment initialization parameters
     private static final String ARG_ORIGINAL_NAME = "original_name";
     private String originalName;
@@ -41,7 +56,6 @@ public class NameFragment extends Fragment implements View.OnClickListener {
      * @param originalName Original Wi-Fi direct device name.
      * @return A new instance of fragment NameFragment.
      */
-    // TODO: Rename and change types and number of parameters
     public static NameFragment newInstance(String originalName) {
         NameFragment fragment = new NameFragment();
         Bundle args = new Bundle();
@@ -74,8 +88,23 @@ public class NameFragment extends Fragment implements View.OnClickListener {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         if (originalName != null && !originalName.isEmpty()) {
+            // Show original name
             editTextName.setText(originalName);
+            // Let user edit the original name in the tail
+            editTextName.requestFocus();
+            editTextName.setSelection(originalName.length());
+            // Show virtual keyboard
+            InputMethodManager imm = (InputMethodManager)getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.showSoftInput(editTextName, InputMethodManager.SHOW_IMPLICIT);
         }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // Hide virtual keyboard
+        InputMethodManager imm = (InputMethodManager)getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(editTextName.getWindowToken(), InputMethodManager.HIDE_IMPLICIT_ONLY);
     }
 
     @Override
@@ -116,19 +145,5 @@ public class NameFragment extends Fragment implements View.OnClickListener {
         if (onChangeWifiP2pNameListener != null && !newName.isEmpty()) {
             onChangeWifiP2pNameListener.onChangeWifiP2pName(newName);
         }
-    }
-
-    /**
-     * This interface must be implemented by activities that contain this
-     * fragment to allow an interaction in this fragment to be communicated
-     * to the activity and potentially other fragments contained in that
-     * activity.
-     * <p/>
-     * See the Android Training lesson <a href=
-     * "http://developer.android.com/training/basics/fragments/communicating.html"
-     * >Communicating with Other Fragments</a> for more information.
-     */
-    public interface OnChangeWifiP2pNameListener {
-        void onChangeWifiP2pName(String name);
     }
 }

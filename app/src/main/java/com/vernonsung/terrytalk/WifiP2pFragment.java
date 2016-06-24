@@ -61,7 +61,12 @@ public class WifiP2pFragment extends Fragment
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnPortRequirementListener {
+        // Need user to input the server port to connect to
         void onPortRequirement();
+    }
+    public interface OnChangeNameRequestListener {
+        // Need user to input a new Wi-Fi P2P device name
+        void onChangeNameRequest(String originalName);
     }
 
     // Schedule task through handler to call the service's methods
@@ -90,15 +95,19 @@ public class WifiP2pFragment extends Fragment
 
     // Interact with the activity
     private OnPortRequirementListener onPortRequirementListener;
+    private OnChangeNameRequestListener onChangeNameRequestListener;
 
     // Display refresh finished 1s later
     private Handler handlerRefreshFinish;
     private static final int HANDLER_REFRESH_FINISH_WHAT = 13;
     private static final int HANDLER_REFRESH_FINISH_DELAY_MS = 1000;
 
+    // Device information
+    private String deviceName;
+
     // Connect to target
-    String targetName;
-    int targetPort;
+    private String targetName;
+    private int targetPort;
 
     // UI
     private TextView textViewName;
@@ -108,7 +117,10 @@ public class WifiP2pFragment extends Fragment
     private SwipeRefreshLayout swipeRefreshLayout;
     private ListView listViewDevices;
 
-    // Function objects
+    // Function objects --------------------------------------------------------------------------
+    /**
+     * User clicks on a device in the device list to connect to it.
+     */
     private AdapterView.OnItemClickListener listViewDevicesOnItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -117,6 +129,17 @@ public class WifiP2pFragment extends Fragment
             onPortRequirementListener.onPortRequirement();
         }
     };
+
+    /**
+     * User clicks on the device name to rename
+     */
+    private View.OnClickListener deviceNameOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            onChangeNameRequestListener.onChangeNameRequest(deviceName);
+        }
+    };
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -185,6 +208,7 @@ public class WifiP2pFragment extends Fragment
         super.onAttach(context);
         if (context instanceof OnPortRequirementListener) {
             onPortRequirementListener = (OnPortRequirementListener) context;
+            onChangeNameRequestListener = (OnChangeNameRequestListener) context;
         } else {
             throw new RuntimeException(context.toString()
                     + " must implement OnPortRequirementListener");
@@ -200,6 +224,7 @@ public class WifiP2pFragment extends Fragment
         super.onAttach(activity);
         if (activity instanceof OnPortRequirementListener) {
             onPortRequirementListener = (OnPortRequirementListener) activity;
+            onChangeNameRequestListener = (OnChangeNameRequestListener) activity;
         } else {
             throw new RuntimeException(activity.toString()
                     + " must implement OnPortRequirementListener");
@@ -210,6 +235,7 @@ public class WifiP2pFragment extends Fragment
     public void onDetach() {
         super.onDetach();
         onPortRequirementListener = null;
+        onChangeNameRequestListener = null;
     }
 
 
@@ -402,7 +428,20 @@ public class WifiP2pFragment extends Fragment
         getActivity().startService(intent);
     }
 
+    private void serviceActionRename(String newName) {
+        if (newName == null || newName.isEmpty()) {
+            Log.e(LOG_TAG, "No new name");
+            return;
+        }
+        Intent intent = new Intent(getActivity(), WifiP2pService.class);
+        intent.setAction(WifiP2pService.ACTION_RENAME);
+        // Put target name into the intent
+        intent.putExtra(WifiP2pService.INTENT_EXTRA_NAME, newName);
+        getActivity().startService(intent);
+    }
+
     public void showDeviceName(String name) {
+        deviceName = name;
         textViewName.setText(name);
     }
 
@@ -421,10 +460,12 @@ public class WifiP2pFragment extends Fragment
     public void setState(WifiP2pService.WifiP2pState state) {
         switch (state) {
             case INITIALIZING:
+                textViewName.setOnClickListener(null);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case SEARCHING:
             case IDLE:
+                textViewName.setOnClickListener(deviceNameOnClickListener);
                 listViewDevices.setOnItemClickListener(listViewDevicesOnItemClickListener);
                 break;
             case REJECTING:
@@ -436,10 +477,12 @@ public class WifiP2pFragment extends Fragment
             case REGISTERING:
             case STUDENT:
             case DISCONNECTING:
+                textViewName.setOnClickListener(null);
                 listViewDevices.setOnItemClickListener(null);
                 break;
             case STOPPING:
             case STOPPED:
+                textViewName.setOnClickListener(null);
                 listViewDevices.setOnItemClickListener(null);
                 // Leave APP
                 serviceStopped = true;
@@ -632,5 +675,9 @@ public class WifiP2pFragment extends Fragment
 
     public void connectTarget() {
         serviceActionConnect();
+    }
+
+    public void changeDeviceName(String newName) {
+        serviceActionRename(newName);
     }
 }

@@ -62,8 +62,10 @@ public class WifiP2pService extends Service
     public static final String ACTION_STOP = "com.vernonsung.testwifip2p.action.stop";  // Stop connecting, disconnect, stop this service
     public static final String ACTION_CONNECT = "com.vernonsung.testwifip2p.action.connect";  // Connect to a device
     public static final String ACTION_REFRESH = "com.vernonsung.testwifip2p.action.refresh";  // Refresh nearby device list
+    public static final String ACTION_RENAME = "com.vernonsung.testwifip2p.action.rename";  // Rename Wi-Fi P2P device
     public static final String INTENT_EXTRA_TARGET = "com.vernonsung.testwifip2p.TARGET";  // String. A parameter of ACTION_CONNECT
     public static final String INTENT_EXTRA_PORT = "com.vernonsung.testwifip2p.PORT";  // int. A parameter of ACTION_CONNECT
+    public static final String INTENT_EXTRA_NAME = "com.vernonsung.testwifip2p.NAME";  // String. A parameter of ACTION_RENAME
     // Local broadcast to send
     public static final String UPDATE_NEARBY_DEVICES_ACTION = "com.vernonsung.testwifip2p.action.update_nearby_devices";
     public static final String UPDATE_STATE_ACTION = "com.vernonsung.testwifip2p.action.update_status";
@@ -134,6 +136,9 @@ public class WifiP2pService extends Service
                 break;
             case ACTION_REFRESH:
                 onActionRefresh();
+                break;
+            case ACTION_RENAME:
+                onActionRename(intent);
                 break;
             default:
                 Log.e(LOG_TAG, "Unknown action " + intent.getAction());
@@ -492,6 +497,36 @@ public class WifiP2pService extends Service
         }
     }
 
+    // After receiving an intent with a "RENAME" action
+    private void onActionRename(Intent intent) {
+        switch (currentState) {
+            case INITIALIZING:
+                Toast.makeText(this, R.string.please_wait_for_initializing, Toast.LENGTH_SHORT).show();
+                return;
+            case SEARCHING:
+            case IDLE:
+                break;
+            case REJECTING:
+            case TEACHER:
+            case TEACHER_DISCONNECTING:
+            case CONNECTING:
+            case CANCELING:
+            case RECONNECTING:
+            case REGISTERING:
+            case STUDENT:
+            case DISCONNECTING:
+            case STOPPING:
+            case STOPPED:
+                Toast.makeText(this, R.string.please_rename_when_idle, Toast.LENGTH_SHORT).show();
+                return;
+        }
+        String newName = intent.getStringExtra(INTENT_EXTRA_NAME);
+        if (newName == null || newName.isEmpty()) {
+            return;
+        }
+        renameDevice(newName);
+    }
+
     // Some sub-functions ------------------------------------------------------------------------
     // Turn into a foreground service. Provide a running notification
     private void turnIntoForeground() {
@@ -541,6 +576,32 @@ public class WifiP2pService extends Service
                 return getString(R.string.unavailable);
         }
         return null;
+    }
+
+    /**
+     * Rename the Wi-Fi direct name of this device
+     */
+    private void renameDevice(String newName) {
+        Method setDeviceName;   // WifiP2pManager.setDeviceName()
+        // Get hidden method through Java reflection
+        try {
+            setDeviceName = WifiP2pManager.class.getMethod(
+                    "setDeviceName",
+                    WifiP2pManager.Channel.class,
+                    String.class,
+                    WifiP2pManager.ActionListener.class);
+        } catch (NoSuchMethodException e) {
+            Log.e(LOG_TAG, "Bug! Method WifiP2pManager.setDeviceName() not found");
+            return;
+        }
+        // Request remembered groups. clearRememberedDevicesStep2() will be called
+        try {
+            setDeviceName.invoke(wifiP2pManager, wifiP2pChannel, newName, null);
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Bug! setDeviceName() failed because " + e.toString());
+            return;
+        }
+        Log.d(LOG_TAG, "Rename device to " + newName);
     }
 
     // Update UI functions -----------------------------------------------------------------------
