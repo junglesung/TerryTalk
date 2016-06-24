@@ -46,4 +46,5 @@
     <string name="teacher_disconnecting">老師斷線中</string>
     <string name="unknown">不明</string>
     <string name="rename">重新命名</string>
+    <string name="please_rename_when_idle">請回到正常狀態下才能重新命名</string>
 </resources>
